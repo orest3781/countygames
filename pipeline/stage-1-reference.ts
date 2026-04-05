@@ -1,7 +1,8 @@
 /**
- * Stage 1: Reference — Download satellite tiles + Wikipedia descriptions.
+ * Stage 1: Reference — Download satellite tiles, street view, + Wikipedia descriptions.
  *
- * Satellite: ESRI World Imagery, one tile per county centroid, zoom 11.
+ * Satellite: Google Maps Static API (640x640), ESRI fallback.
+ * Street View: Google Street View Static API at county seat (metadata check is free).
  * Wiki: Wikipedia REST API, opening paragraph per county.
  *
  * Resume-safe: skips files/entries that already exist.
@@ -13,6 +14,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 
 import { join } from "path";
 
 const SAT_DIR = join(process.cwd(), "data", "satellite");
+const SV_DIR = join(process.cwd(), "data", "streetview");
 const WIKI_FILE = "data/wiki.json";
 
 // ─── Satellite tile download ───
@@ -94,6 +96,94 @@ async function downloadSatelliteTiles(counties: { fips: string; latitude: number
   const total = existing.size + downloaded;
   console.log(`Satellite tiles complete: ${total} total (${downloaded} new, ${failed} failed)`);
   return total;
+}
+
+// ─── Street View download ───
+
+interface StreetViewMeta {
+  status: string;
+  pano_id?: string;
+  location?: { lat: number; lng: number };
+  date?: string;
+}
+
+async function checkStreetViewCoverage(lat: number, lng: number): Promise<StreetViewMeta | null> {
+  const url = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${lat},${lng}&source=outdoor&key=${GOOGLE_API_KEY}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json() as StreetViewMeta;
+    return json.status === "OK" ? json : null;
+  } catch {
+    return null;
+  }
+}
+
+function streetViewImageUrl(lat: number, lng: number): string {
+  return `https://maps.googleapis.com/maps/api/streetview?location=${lat},${lng}&size=640x640&fov=110&pitch=10&source=outdoor&key=${GOOGLE_API_KEY}`;
+}
+
+async function downloadStreetView(counties: { fips: string; latitude: number; longitude: number }[]): Promise<{ downloaded: number; checked: number }> {
+  if (!GOOGLE_API_KEY) {
+    console.log("Street View: skipped (no Google API key)");
+    return { downloaded: 0, checked: 0 };
+  }
+
+  mkdirSync(SV_DIR, { recursive: true });
+
+  const existing = new Set(
+    readdirSync(SV_DIR)
+      .filter(f => f.endsWith(".jpg") || f.endsWith(".png"))
+      .map(f => f.replace(/\.(jpg|png)$/, ""))
+  );
+  const todo = counties.filter(c => !existing.has(c.fips) && c.latitude && c.longitude);
+
+  console.log(`Street View: ${existing.size} existing, ${todo.length} to check`);
+  let checked = 0;
+  let downloaded = 0;
+  let noCoverage = 0;
+
+  for (let i = 0; i < todo.length; i++) {
+    const c = todo[i];
+
+    // Step 1: Free metadata check
+    const meta = await checkStreetViewCoverage(c.latitude, c.longitude);
+    checked++;
+
+    if (!meta) {
+      noCoverage++;
+      if ((i + 1) % 500 === 0) {
+        console.log(`  [${i + 1}/${todo.length}] checked: ${checked}, downloaded: ${downloaded}, no coverage: ${noCoverage}`);
+      }
+      await new Promise(r => setTimeout(r, 50)); // metadata is free, fast rate limit
+      continue;
+    }
+
+    // Step 2: Download the image (uses quota)
+    const imgLat = meta.location?.lat || c.latitude;
+    const imgLng = meta.location?.lng || c.longitude;
+    const url = streetViewImageUrl(imgLat, imgLng);
+    const outPath = join(SV_DIR, `${c.fips}.jpg`);
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (!isValidImage(buf) || buf.length < 5000) continue;
+      writeFileSync(outPath, buf);
+      downloaded++;
+    } catch {
+      // Skip silently — satellite is the fallback
+    }
+
+    if ((i + 1) % 100 === 0 || i < 10) {
+      console.log(`  [${i + 1}/${todo.length}] checked: ${checked}, downloaded: ${downloaded}, no coverage: ${noCoverage}`);
+    }
+    await new Promise(r => setTimeout(r, 200)); // rate limit image downloads
+  }
+
+  console.log(`Street View complete: ${downloaded} downloaded, ${noCoverage} no coverage, ${existing.size + downloaded} total`);
+  return { downloaded, checked };
 }
 
 // ─── Wikipedia descriptions ───
@@ -198,6 +288,10 @@ async function main() {
   const satCount = await downloadSatelliteTiles(counties);
   console.log();
 
+  // Download Street View images (metadata check is free, images use quota)
+  const sv = await downloadStreetView(counties);
+  console.log();
+
   // Download Wikipedia descriptions
   const wikiCount = await downloadWikiDescriptions(counties);
   console.log();
@@ -207,13 +301,14 @@ async function main() {
   status.stage1 = {
     complete: true,
     satellites: satCount,
+    streetview: sv.downloaded,
     wiki: wikiCount,
     timestamp: new Date().toISOString(),
   };
   saveStatus(status);
 
   console.log("=== Stage 1 Complete ===");
-  console.log(`  Satellites: ${satCount} | Wiki: ${wikiCount}`);
+  console.log(`  Satellites: ${satCount} | Street View: ${sv.downloaded} | Wiki: ${wikiCount}`);
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

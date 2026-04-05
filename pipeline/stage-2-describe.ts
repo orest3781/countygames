@@ -14,6 +14,7 @@ import { join } from "path";
 
 const VISION_MODEL = "gemma4:e4b";
 const SAT_DIR = join(process.cwd(), "data", "satellite");
+const SV_DIR = join(process.cwd(), "data", "streetview");
 const WIKI_FILE = "data/wiki.json";
 const DESCRIPTIONS_FILE = "data/descriptions.json";
 
@@ -44,23 +45,36 @@ async function queryVision(imageBase64: string, prompt: string): Promise<string>
 function buildPrompt(
   county: { name: string; state_name: string; state_abbr: string; rarity: string; display_population: string; display_area: string },
   wikiExtract: string | null,
+  imageType: "streetview" | "satellite",
 ): string {
-  const region = REGION_MAP[county.state_abbr] || { name: "America", palette: "natural light, atmospheric", elements: "varied terrain" };
   const mood = RARITY_MOODS[county.rarity] || RARITY_MOODS.common;
 
   const wikiSection = wikiExtract
     ? `\nFACTS ABOUT THIS PLACE: ${wikiExtract.substring(0, 400)}\n`
     : "";
 
-  return `Look at this satellite photo carefully. Describe EXACTLY what you see — the specific landforms, water features, vegetation patterns, and terrain.
+  if (imageType === "streetview") {
+    return `You are looking at a ground-level photograph of a real place in America. Describe EXACTLY what you see — the road, buildings, trees, sky, terrain in the distance.
 ${wikiSection}
-This will become a painting prompt. Write a vivid 40-60 word scene description that:
+This will become a landscape painting prompt. Write a vivid 40-60 word scene description that:
+- Describes the SPECIFIC things visible: architectural style, tree types, road surface, horizon line, cloud formations
+- Picks ONE time of day and commits to it
+- Uses ${mood} mood
+- Captures what makes THIS place different from anywhere else
+
+NEVER mention: county names, state names, "photo", "image", "street view", "Google", cameras, cars, road signs, or text.
+Write ONLY the scene description, nothing else:`;
+  }
+
+  return `Look at this aerial photograph carefully. Describe EXACTLY what you see — the specific landforms, water features, vegetation patterns, and terrain.
+${wikiSection}
+This will become a landscape painting prompt. Write a vivid 40-60 word scene description that:
 - Names the SPECIFIC landscape features visible (e.g., "a wide brown river bends through dense pine forest" not "varied terrain with waterways")
 - Picks ONE time of day and commits to it
 - Uses ${mood} mood
 - Is UNIQUE to this exact location — avoid generic phrases like "patchwork fields" or "rolling landscape"
 
-NEVER mention: county names, state names, the word "satellite", or the word "image".
+NEVER mention: county names, state names, "satellite", "aerial", or "image".
 Write ONLY the scene description, nothing else:`;
 }
 
@@ -239,21 +253,40 @@ async function main() {
   const t0 = Date.now();
   const descSaver = createBatchedSaver(DESCRIPTIONS_FILE, 10);
 
+  // Count image sources
+  let svUsed = 0;
+  let satUsed = 0;
+
   for (let i = 0; i < counties.length; i++) {
     const county = counties[i];
-    const satPathJpg = join(SAT_DIR, county.fips + ".jpg");
+
+    // Pick best image: Street View > Satellite
+    const svPath = join(SV_DIR, county.fips + ".jpg");
     const satPathPng = join(SAT_DIR, county.fips + ".png");
+    const satPathJpg = join(SAT_DIR, county.fips + ".jpg");
     const satPath = existsSync(satPathPng) ? satPathPng : satPathJpg;
-    if (!existsSync(satPath)) {
+
+    let imagePath: string;
+    let imageType: "streetview" | "satellite";
+
+    if (existsSync(svPath)) {
+      imagePath = svPath;
+      imageType = "streetview";
+      svUsed++;
+    } else if (existsSync(satPath)) {
+      imagePath = satPath;
+      imageType = "satellite";
+      satUsed++;
+    } else {
       failed++;
-      errors.push(`${county.fips}: no satellite tile`);
+      errors.push(`${county.fips}: no image available`);
       continue;
     }
 
     try {
-      const imageBase64 = readFileSync(satPath).toString("base64");
+      const imageBase64 = readFileSync(imagePath).toString("base64");
       const wikiExtract = wiki[county.fips] || null;
-      const prompt = buildPrompt(county, wikiExtract);
+      const prompt = buildPrompt(county, wikiExtract, imageType);
       const raw = await queryVision(imageBase64, prompt);
       const desc = cleanDescription(raw, county.name, county.state_name);
 
@@ -273,7 +306,8 @@ async function main() {
         const elapsed = (Date.now() - t0) / 1000;
         const rate = generated / elapsed;
         const eta = (counties.length - (i + 1)) / Math.max(rate, 0.01) / 60;
-        console.log(`  [${i + 1}/${counties.length}] ${county.name}, ${county.state_abbr}: "${desc.substring(0, 60)}..." | ${rate.toFixed(2)}/s ETA ${eta.toFixed(0)}m`);
+        const src = imageType === "streetview" ? "SV" : "SAT";
+        console.log(`  [${i + 1}/${counties.length}] ${src} ${county.name}, ${county.state_abbr}: "${desc.substring(0, 60)}..." | ${rate.toFixed(2)}/s ETA ${eta.toFixed(0)}m`);
       }
     } catch (err: any) {
       failed++;
@@ -307,6 +341,7 @@ async function main() {
 
   console.log(`\n=== Stage 2 Complete in ${((Date.now() - t0) / 60000).toFixed(1)} min ===`);
   console.log(`Generated: ${generated} | Failed: ${failed} | Total: ${Object.keys(descriptions).length}`);
+  console.log(`Sources: ${svUsed} Street View, ${satUsed} Satellite`);
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
