@@ -1,0 +1,38 @@
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "pipeline:gazetteer": "tsx pipeline/sources/00-gazetteer.ts",
+    "pipeline:census": "tsx pipeline/sources/01-census-acs.ts",
+    "pipeline:gdp": "tsx pipeline/sources/02-bea-gdp.ts",
+    "pipeline:health": "tsx pipeline/sources/03-health-rankings.ts",
+    "pipeline:fema": "tsx pipeline/sources/04-fema-disasters.ts",
+    "pipeline:curate": "tsx pipeline/curate/select-500.ts",
+    "pipeline:derive": "tsx pipeline/derive/compute-stats.ts",
+    "pipeline:all": "tsx pipeline/sources/00-gazetteer.ts && tsx pipeline/sources/01-census-acs.ts && tsx pipeline/sources/02-bea-gdp.ts && tsx pipeline/sources/03-health-rankings.ts && tsx pipeline/sources/04-fema-disasters.ts && tsx pipeline/curate/select-500.ts && tsx pipeline/derive/compute-stats.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
+    "next": "^16.2.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "adm-zip": "^0.5.17",
+    "csv-parse": "^6.2.1",
+    "dotenv": "^17.4.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.2",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "zod": "^4.3.6"
+  }
+}
