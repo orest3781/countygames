@@ -73,8 +73,12 @@ function cleanDescription(raw: string, countyName: string, stateName: string): s
     desc = lines.reduce((a, b) => a.length > b.length ? a : b);
   }
 
-  // Cap at 300 chars
-  if (desc.length > 300) desc = desc.substring(0, 297) + "...";
+  // Cap at 500 chars — truncate at last sentence boundary
+  if (desc.length > 500) {
+    const cut = desc.substring(0, 500);
+    const lastPeriod = cut.lastIndexOf(".");
+    desc = lastPeriod > 200 ? cut.substring(0, lastPeriod + 1) : cut.substring(0, 497) + "...";
+  }
 
   // Too short = failed
   if (desc.length < 20) return null;
