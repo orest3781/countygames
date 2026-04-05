@@ -6,7 +6,7 @@
  */
 
 import { OLLAMA_URL, unloadOllamaModels } from "./config.js";
-import { spawnSync } from "child_process";
+import { spawnSync, execSync } from "child_process";
 import { existsSync } from "fs";
 import { join } from "path";
 
@@ -85,6 +85,26 @@ async function preflight(): Promise<boolean> {
   } catch (e: any) {
     console.log("[FAIL] Supabase: " + e.message);
     ok = false;
+  }
+
+  // Disk space
+  try {
+    const raw = require("child_process").execSync(
+      'wmic logicaldisk where "DeviceID=\'S:\'" get FreeSpace /value',
+      { encoding: "utf-8" }
+    );
+    const match = raw.match(/FreeSpace=(\d+)/);
+    if (match) {
+      const freeGB = parseInt(match[1]) / (1024 ** 3);
+      if (freeGB < 16) {
+        console.log(`[FAIL] Disk space: ${freeGB.toFixed(1)} GB free (need ~16GB)`);
+        ok = false;
+      } else {
+        console.log(`[OK] Disk space: ${freeGB.toFixed(1)} GB free`);
+      }
+    }
+  } catch {
+    console.log("[SKIP] Could not check disk space");
   }
 
   console.log();

@@ -2,7 +2,7 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 import { createClient } from "@supabase/supabase-js";
 import { parse } from "csv-parse/sync";
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from "fs";
+import { writeFileSync, readFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from "fs";
 import { join } from "path";
 
 // Supabase client
@@ -84,7 +84,7 @@ export async function batchUpsert(
   let total = 0;
   for (let i = 0; i < rows.length; i += batchSize) {
     const batch = rows.slice(i, i + batchSize);
-    const { error } = await supabase.from(table).upsert(batch);
+    const { error } = await supabase.from(table).upsert(batch, { onConflict: "fips" });
     if (error) {
       console.error(`  [error] batch ${i}-${i + batch.length}:`, error.message);
       throw error;
@@ -93,24 +93,6 @@ export async function batchUpsert(
     console.log(`  [upserted] ${total}/${rows.length} into ${table}`);
   }
   return total;
-}
-
-/** Fetch all FIPS from counties table (paginated to handle 1000-row server limit). */
-export async function fetchAllCountyFips(): Promise<Set<string>> {
-  const fips = new Set<string>();
-  let offset = 0;
-  const limit = 1000;
-  while (true) {
-    const { data } = await supabase
-      .from("counties")
-      .select("fips")
-      .range(offset, offset + limit - 1);
-    if (!data || data.length === 0) break;
-    for (const r of data) fips.add(r.fips.trim());
-    if (data.length < limit) break;
-    offset += limit;
-  }
-  return fips;
 }
 
 /** US state FIPS → abbreviation + name lookup */
@@ -305,5 +287,27 @@ export function loadJson<T = Record<string, unknown>>(filename: string): T {
 
 export function saveJson(filename: string, data: unknown): void {
   const filepath = join(process.cwd(), filename);
-  writeFileSync(filepath, JSON.stringify(data, null, 2));
+  const content = JSON.stringify(data, null, 2);
+  const tmp = filepath + ".tmp";
+  writeFileSync(tmp, content);
+  try {
+    renameSync(tmp, filepath);
+  } catch {
+    // Windows fallback: rename fails if target is locked
+    writeFileSync(filepath, content);
+    try { unlinkSync(tmp); } catch { /* ignore */ }
+  }
+}
+
+/** Save JSON only every N calls — reduces I/O for large loops. Call with force=true at end. */
+export function createBatchedSaver(filename: string, interval = 10) {
+  let count = 0;
+  return {
+    save(data: unknown, force = false) {
+      count++;
+      if (force || count % interval === 0) {
+        saveJson(filename, data);
+      }
+    },
+  };
 }

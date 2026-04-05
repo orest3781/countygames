@@ -15,7 +15,7 @@
  */
 
 import { spawn, spawnSync, execSync } from "child_process";
-import { existsSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 const OLLAMA_URL = "http://127.0.0.1:11434";
@@ -277,8 +277,16 @@ async function main() {
     return;
   }
 
-  // 6. Start dashboard in background
+  // 6. Start dashboard in background (kill any existing instance first)
   console.log("\n  Starting dashboard at http://localhost:9333 ...");
+  const pidFile = join(process.cwd(), "data", ".dashboard-pid");
+  // Kill previous dashboard if running
+  if (existsSync(pidFile)) {
+    try {
+      const oldPid = readFileSync(pidFile, "utf-8").trim();
+      execSync(`taskkill /PID ${oldPid} /T /F 2>nul`, { stdio: "ignore" });
+    } catch { /* ignore if already dead */ }
+  }
   const dashboard = spawn("npx", ["tsx", "pipeline/dashboard/server.ts"], {
     detached: true,
     stdio: "ignore",
@@ -286,6 +294,9 @@ async function main() {
     cwd: process.cwd(),
   });
   dashboard.unref();
+  if (dashboard.pid) {
+    writeFileSync(pidFile, String(dashboard.pid));
+  }
 
   // 7. Run pipeline
   if (singleStage) {

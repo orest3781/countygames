@@ -8,7 +8,7 @@
  * Usage: npx tsx pipeline/stage-1-reference.ts
  */
 
-import { supabase, loadStatus, saveStatus, saveJson, loadJson } from "./config.js";
+import { supabase, loadStatus, saveStatus, saveJson, loadJson, createBatchedSaver } from "./config.js";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
@@ -50,16 +50,22 @@ async function downloadSatelliteTiles(counties: { fips: string; latitude: number
     const url = esriTileUrl(c.latitude, c.longitude);
     const outPath = join(SAT_DIR, `${c.fips}.jpg`);
 
-    try {
-      const res = await fetch(url);
-      if (!res.ok) { failed++; continue; }
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (!isValidJpeg(buf)) { failed++; continue; }
-      writeFileSync(outPath, buf);
-      downloaded++;
-    } catch {
-      failed++;
+    let success = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (!isValidJpeg(buf)) continue;
+        writeFileSync(outPath, buf);
+        success = true;
+        break;
+      } catch {
+        if (attempt < 2) await new Promise(r => setTimeout(r, 1000));
+      }
     }
+    if (success) downloaded++;
+    else failed++;
 
     if ((i + 1) % 100 === 0 || i < 5) {
       console.log(`  [${i + 1}/${todo.length}] downloaded: ${downloaded}, failed: ${failed}`);
@@ -99,6 +105,7 @@ async function downloadWikiDescriptions(counties: { fips: string; name: string; 
   console.log(`Wiki descriptions: ${Object.keys(wiki).length} existing, ${todo.length} to download`);
   let downloaded = 0;
   let failed = 0;
+  const wikiSaver = createBatchedSaver(WIKI_FILE, 10);
 
   for (let i = 0; i < todo.length; i++) {
     const c = todo[i];
@@ -107,11 +114,16 @@ async function downloadWikiDescriptions(counties: { fips: string; name: string; 
 
     // Fallback for parishes, boroughs, etc.
     if (!extract || extract.length <= 20) {
-      const altName = c.name
+      const baseName = c.name
         .replace(/ County$/i, "").replace(/ Parish$/i, "")
         .replace(/ Borough$/i, "").replace(/ Census Area$/i, "")
         .replace(/ Municipality$/i, "").replace(/ City and Borough$/i, "");
-      extract = await fetchWikiExtract(buildWikiTitle(altName + " County", c.state_name));
+      // Try bare name + state (works for independent cities, parishes)
+      extract = await fetchWikiExtract(buildWikiTitle(baseName, c.state_name));
+      // If still nothing, try baseName + " County"
+      if (!extract || extract.length <= 20) {
+        extract = await fetchWikiExtract(buildWikiTitle(baseName + " County", c.state_name));
+      }
     }
 
     if (extract && extract.length > 20) {
@@ -121,14 +133,16 @@ async function downloadWikiDescriptions(counties: { fips: string; name: string; 
       failed++;
     }
 
-    // Save after every record (crash-safe)
-    saveJson(WIKI_FILE, wiki);
+    // Save periodically (crash-safe)
+    wikiSaver.save(wiki);
 
     if ((i + 1) % 100 === 0 || i < 5) {
       console.log(`  [${i + 1}/${todo.length}] ${c.name}, ${c.state_name}: ${extract ? "OK" : "FAILED"}`);
     }
     await new Promise(r => setTimeout(r, 200)); // rate limit
   }
+
+  wikiSaver.save(wiki, true);
 
   const total = Object.keys(wiki).length;
   console.log(`Wiki descriptions complete: ${total} total (${downloaded} new, ${failed} failed)`);

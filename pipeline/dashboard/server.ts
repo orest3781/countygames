@@ -10,7 +10,7 @@
 
 import http from "http";
 import { readdirSync, readFileSync, existsSync, statSync } from "fs";
-import { join, extname } from "path";
+import { join, extname, resolve } from "path";
 
 const PORT = 9333;
 const DATA_DIR = join(process.cwd(), "data");
@@ -136,7 +136,13 @@ function serveArtFile(
   res: http.ServerResponse
 ): void {
   const filename = fips.endsWith(".png") ? fips : `${fips}.png`;
-  const filepath = join(DATA_DIR, "card-art", filename);
+  const filepath = resolve(DATA_DIR, "card-art", filename);
+  const safeBase = resolve(DATA_DIR, "card-art");
+  if (!filepath.startsWith(safeBase)) {
+    res.writeHead(403, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Forbidden" }));
+    return;
+  }
   if (!existsSync(filepath)) {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found" }));
@@ -261,6 +267,11 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       border-color: #10b981;
       background: #0f2918;
       color: #10b981;
+    }
+    .stage-circle.stalled {
+      border-color: #f59e0b;
+      background: #3b2f0a;
+      color: #f59e0b;
     }
     .stage-info {
       display: flex;
@@ -562,6 +573,11 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       var info = status[key];
       if (!info) return 'not-started';
       if (info.complete) return 'complete';
+      // Detect stale "in-progress" — if timestamp is >10 min old, likely dead
+      if (info.timestamp) {
+        var age = Date.now() - new Date(info.timestamp).getTime();
+        if (age > 10 * 60 * 1000) return 'stalled';
+      }
       return 'in-progress';
     }
 
@@ -599,6 +615,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     function stateLabel(state) {
       if (state === 'complete') return 'Complete';
       if (state === 'in-progress') return 'In progress...';
+      if (state === 'stalled') return 'Stalled?';
       return 'Not started';
     }
 

@@ -8,7 +8,7 @@
  * Usage: npx tsx pipeline/stage-4-enrich.ts
  */
 
-import { supabase, loadStatus, saveStatus, loadJson, saveJson, OLLAMA_URL, unloadOllamaModels } from "./config.js";
+import { supabase, loadStatus, saveStatus, loadJson, saveJson, createBatchedSaver, OLLAMA_URL, unloadOllamaModels } from "./config.js";
 import { existsSync } from "fs";
 import { join } from "path";
 
@@ -97,7 +97,7 @@ async function main() {
     const res = await fetch(`${OLLAMA_URL}/api/tags`);
     const tags = await res.json();
     const models = (tags.models || []).map((m: any) => m.name);
-    if (!models.some((m: string) => m.includes("qwen3") && !m.includes("vl"))) {
+    if (!models.some((m: string) => m === TEXT_MODEL || m.startsWith(TEXT_MODEL + ":"))) {
       console.error(`ERROR: Model ${TEXT_MODEL} not found. Run: ollama pull ${TEXT_MODEL}`);
       process.exit(1);
     }
@@ -153,11 +153,22 @@ async function main() {
   }
 
   console.log(`Counties to process: ${counties.length}\n`);
-  if (counties.length === 0) { console.log("All done!"); return; }
+  if (counties.length === 0) {
+    const status = loadStatus();
+    status.stage4 = {
+      complete: true,
+      enriched: Object.keys(enrichment).length,
+      timestamp: new Date().toISOString(),
+    };
+    saveStatus(status);
+    console.log("All done!");
+    return;
+  }
 
   let generated = 0;
   let failed = 0;
   const t0 = Date.now();
+  const enrichSaver = createBatchedSaver(ENRICHMENT_FILE, 10);
 
   for (let i = 0; i < counties.length; i++) {
     const county = counties[i];
@@ -183,8 +194,8 @@ async function main() {
       };
       generated++;
 
-      // Save after every county (crash-safe)
-      saveJson(ENRICHMENT_FILE, enrichment);
+      // Save periodically (crash-safe)
+      enrichSaver.save(enrichment);
 
       if ((i + 1) % 50 === 0 || i < 5) {
         const elapsed = (Date.now() - t0) / 1000;
@@ -198,17 +209,26 @@ async function main() {
     }
   }
 
+  // Force-save final state
+  enrichSaver.save(enrichment, true);
+
   // Unload model
   await unloadOllamaModels();
 
   // Update status
+  const failRate = failed / counties.length;
   const status = loadStatus();
   status.stage4 = {
-    complete: true,
+    complete: failRate < 0.05,
     enriched: Object.keys(enrichment).length,
+    failed,
     timestamp: new Date().toISOString(),
   };
   saveStatus(status);
+
+  if (failRate >= 0.05) {
+    console.error(`\nWARNING: ${(failRate * 100).toFixed(1)}% failure rate. Stage marked incomplete.`);
+  }
 
   console.log(`\n=== Stage 4 Complete in ${((Date.now() - t0) / 60000).toFixed(1)} min ===`);
   console.log(`Generated: ${generated} | Failed: ${failed} | Total: ${Object.keys(enrichment).length}`);

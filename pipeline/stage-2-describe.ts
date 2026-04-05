@@ -8,7 +8,7 @@
  * Usage: npx tsx pipeline/stage-2-describe.ts
  */
 
-import { supabase, loadStatus, saveStatus, loadJson, saveJson, REGION_MAP, RARITY_MOODS, OLLAMA_URL, unloadOllamaModels } from "./config.js";
+import { supabase, loadStatus, saveStatus, loadJson, saveJson, createBatchedSaver, REGION_MAP, RARITY_MOODS, OLLAMA_URL, unloadOllamaModels } from "./config.js";
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
 
@@ -74,9 +74,10 @@ function cleanDescription(raw: string, countyName: string, stateName: string): s
   // Strip county/state names if leaked
   const lc = desc.toLowerCase();
   if (lc.includes(countyName.toLowerCase()) || lc.includes(stateName.toLowerCase())) {
+    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     desc = desc
-      .replace(new RegExp(countyName, "gi"), "")
-      .replace(new RegExp(stateName, "gi"), "")
+      .replace(new RegExp(esc(countyName), "gi"), "")
+      .replace(new RegExp(esc(stateName), "gi"), "")
       .replace(/\s{2,}/g, " ")
       .trim();
   }
@@ -208,6 +209,7 @@ async function main() {
   let generated = 0;
   let failed = 0;
   const t0 = Date.now();
+  const descSaver = createBatchedSaver(DESCRIPTIONS_FILE, 10);
 
   for (let i = 0; i < counties.length; i++) {
     const county = counties[i];
@@ -226,8 +228,8 @@ async function main() {
       descriptions[county.fips] = desc;
       generated++;
 
-      // Save after every description (crash-safe)
-      saveJson(DESCRIPTIONS_FILE, descriptions);
+      // Save periodically (crash-safe)
+      descSaver.save(descriptions);
 
       if ((i + 1) % 25 === 0 || i < 5) {
         const elapsed = (Date.now() - t0) / 1000;
@@ -244,15 +246,23 @@ async function main() {
   // Unload vision model to free VRAM for next stage
   await unloadOllamaModels();
 
-  // Update status
+  // Save final state
+  descSaver.save(descriptions, true);
+
+  // Update status — only mark complete if failure rate < 5%
+  const failRate = failed / counties.length;
   const status = loadStatus();
   status.stage2 = {
-    complete: true,
+    complete: failRate < 0.05,
     descriptions: Object.keys(descriptions).length,
     failed,
     timestamp: new Date().toISOString(),
   };
   saveStatus(status);
+
+  if (failRate >= 0.05) {
+    console.error(`\nWARNING: ${(failRate * 100).toFixed(1)}% failure rate. Stage marked incomplete.`);
+  }
 
   console.log(`\n=== Stage 2 Complete in ${((Date.now() - t0) / 60000).toFixed(1)} min ===`);
   console.log(`Generated: ${generated} | Failed: ${failed} | Total: ${Object.keys(descriptions).length}`);

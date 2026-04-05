@@ -12,6 +12,7 @@ Resume-safe: skips existing PNGs (validates magic bytes + size >10KB).
 Usage: python pipeline/stage-3-render.py
 """
 
+import hashlib
 import json
 import os
 import sys
@@ -260,11 +261,15 @@ def is_valid_png(path):
 
 def update_status(rendered, total):
     try:
-        status = json.load(open(STATUS_FILE)) if STATUS_FILE.exists() else {}
+        if STATUS_FILE.exists():
+            with open(STATUS_FILE) as f:
+                status = json.load(f)
+        else:
+            status = {}
     except:
         status = {}
     status["stage3"] = {
-        "complete": rendered >= total,
+        "complete": rendered >= total and (total == 0 or (total - rendered) / total < 0.05),
         "rendered": rendered,
         "total": total,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -322,7 +327,8 @@ def main():
         sys.exit(1)
 
     # Load descriptions + rarity data
-    descriptions = json.load(open(DESCRIPTIONS_FILE))
+    with open(DESCRIPTIONS_FILE) as f:
+        descriptions = json.load(f)
     print(f"Descriptions loaded: {len(descriptions)}")
 
     # Load rarity data from CSV or descriptions keys
@@ -338,7 +344,8 @@ def main():
         print(f"ERROR: {META_FILE} not found. Run Stage 2 first.")
         sys.exit(1)
 
-    cards_meta = json.load(open(META_FILE))
+    with open(META_FILE) as f:
+        cards_meta = json.load(f)
     print(f"Card metadata loaded: {len(cards_meta)} entries")
 
     ART_DIR.mkdir(parents=True, exist_ok=True)
@@ -378,7 +385,7 @@ def main():
         art_path = ART_DIR / f"{fips}.png"
 
         prompt = build_prompt(card["description"], card["state_abbr"], rarity)
-        seed = hash(f"{fips}-v2") % (2**32)
+        seed = int(hashlib.md5(f"{fips}-v2".encode()).hexdigest(), 16) % (2**32)
 
         # Base generation (txt2img)
         pid = queue_prompt(build_workflow(prompt, NEGATIVE_PROMPT, seed, tier["steps"], tier["cfg"]))
@@ -399,6 +406,8 @@ def main():
             continue
 
         # Polish passes (img2img on own output)
+        expected_polish = len(tier["polish"])
+        completed_polish = 0
         for denoise in tier["polish"]:
             uploaded = upload_image(str(art_path))
             if not uploaded:
@@ -410,8 +419,11 @@ def main():
             if not hist:
                 break
             fn = get_output_image(hist)
-            if fn:
-                download_output(fn, str(art_path))
+            if fn and download_output(fn, str(art_path)):
+                completed_polish += 1
+
+        if expected_polish > 0 and completed_polish < expected_polish:
+            print(f"  [warn] {fips}: only {completed_polish}/{expected_polish} polish passes completed")
 
         gen += 1
 
@@ -430,6 +442,10 @@ def main():
     elapsed = (time.time() - t0) / 60
     print(f"\n=== Stage 3 Complete in {elapsed:.1f} min ===")
     print(f"Generated: {gen} | Failed: {fail} | Total: {skip + gen}")
+
+    if fail > 0 and fail / len(todo) >= 0.05:
+        print(f"\nERROR: {fail / len(todo) * 100:.1f}% failure rate.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
