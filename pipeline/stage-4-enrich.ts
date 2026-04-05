@@ -30,7 +30,8 @@ async function queryLLM(prompt: string): Promise<string> {
       model: TEXT_MODEL,
       prompt,
       stream: false,
-      options: { temperature: 0.8, num_predict: 800 },
+      think: false,
+      options: { temperature: 0.8, num_predict: 200 },
     }),
   });
   if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);

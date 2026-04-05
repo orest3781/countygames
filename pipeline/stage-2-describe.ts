@@ -12,7 +12,7 @@ import { supabase, loadStatus, saveStatus, loadJson, saveJson, createBatchedSave
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
 
-const VISION_MODEL = "qwen2.5vl:7b";
+const VISION_MODEL = "gemma4:e4b";
 const SAT_DIR = join(process.cwd(), "data", "satellite");
 const WIKI_FILE = "data/wiki.json";
 const DESCRIPTIONS_FILE = "data/descriptions.json";
@@ -25,28 +25,20 @@ async function queryVision(imageBase64: string, prompt: string): Promise<string>
       model: VISION_MODEL,
       messages: [{ role: "user", content: prompt, images: [imageBase64] }],
       stream: false,
+      think: false,
       options: { temperature: 0.8, top_p: 0.9, num_predict: 200, num_ctx: 4096 },
     }),
   });
   if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
   const json = await res.json();
-  // Qwen3-VL uses "thinking" mode — actual content may be in message.thinking
-  // The model thinks first, then writes the answer in content.
-  // If content is empty, extract the answer from thinking output.
   let text = (json.message?.content || "").trim();
+  // Fallback: if model still used thinking mode, extract from thinking field
   if (!text && json.message?.thinking) {
-    // Extract the actual description from thinking — it's usually the last
-    // coherent paragraph after the reasoning
-    const thinking = json.message.thinking as string;
-    // Remove <think> tags if present
-    const cleaned = thinking.replace(/<think>|<\/think>/g, "").trim();
-    // Take the last substantial line (the model usually ends with the answer)
+    const cleaned = (json.message.thinking as string).replace(/<think>|<\/think>/g, "").trim();
     const lines = cleaned.split("\n").map((l: string) => l.trim()).filter((l: string) => l.length > 20);
-    text = lines.length > 0 ? lines[lines.length - 1] : cleaned.substring(cleaned.length - 300);
+    text = lines.length > 0 ? lines[lines.length - 1] : "";
   }
-  // Strip any remaining think tags or quotes
-  text = text.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/^["']|["']$/g, "").trim();
-  return text;
+  return text.replace(/^["']|["']$/g, "").trim();
 }
 
 function buildPrompt(
@@ -123,7 +115,7 @@ async function main() {
     const res = await fetch(`${OLLAMA_URL}/api/tags`);
     const tags = await res.json();
     const models = (tags.models || []).map((m: any) => m.name);
-    if (!models.some((m: string) => m.includes("qwen2.5vl") || m.includes("qwen3-vl"))) {
+    if (!models.some((m: string) => m.includes("gemma4"))) {
       console.error(`ERROR: Model ${VISION_MODEL} not found. Run: ollama pull ${VISION_MODEL}`);
       process.exit(1);
     }
