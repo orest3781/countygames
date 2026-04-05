@@ -263,20 +263,16 @@ export function saveStatus(status: PipelineStatus): void {
 export const OLLAMA_URL = "http://127.0.0.1:11434";
 
 export async function unloadOllamaModels(): Promise<void> {
-  try {
-    await fetch(`${OLLAMA_URL}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "qwen3-vl:8b", keep_alive: 0 }),
-    });
-  } catch { /* ignore if model not loaded */ }
-  try {
-    await fetch(`${OLLAMA_URL}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "qwen3:14b", keep_alive: 0 }),
-    });
-  } catch { /* ignore if model not loaded */ }
+  const models = ["qwen3-vl:8b", "qwen2.5vl:7b", "qwen3:14b", "gemma3:27b"];
+  for (const model of models) {
+    try {
+      await fetch(`${OLLAMA_URL}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, messages: [], keep_alive: 0 }),
+      });
+    } catch { /* ignore if model not loaded */ }
+  }
 }
 
 // ─── Shared JSON read/write ───

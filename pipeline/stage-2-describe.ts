@@ -12,7 +12,7 @@ import { supabase, loadStatus, saveStatus, loadJson, saveJson, createBatchedSave
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
 
-const VISION_MODEL = "qwen3-vl:8b";
+const VISION_MODEL = "qwen2.5vl:7b";
 const SAT_DIR = join(process.cwd(), "data", "satellite");
 const WIKI_FILE = "data/wiki.json";
 const DESCRIPTIONS_FILE = "data/descriptions.json";
@@ -25,7 +25,7 @@ async function queryVision(imageBase64: string, prompt: string): Promise<string>
       model: VISION_MODEL,
       messages: [{ role: "user", content: prompt, images: [imageBase64] }],
       stream: false,
-      options: { temperature: 0.8, top_p: 0.9, num_predict: 1500 },
+      options: { temperature: 0.8, top_p: 0.9, num_predict: 200, num_ctx: 4096 },
     }),
   });
   if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
@@ -123,7 +123,7 @@ async function main() {
     const res = await fetch(`${OLLAMA_URL}/api/tags`);
     const tags = await res.json();
     const models = (tags.models || []).map((m: any) => m.name);
-    if (!models.some((m: string) => m.includes("qwen3-vl"))) {
+    if (!models.some((m: string) => m.includes("qwen2.5vl") || m.includes("qwen3-vl"))) {
       console.error(`ERROR: Model ${VISION_MODEL} not found. Run: ollama pull ${VISION_MODEL}`);
       process.exit(1);
     }
