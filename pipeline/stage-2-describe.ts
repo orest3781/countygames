@@ -27,7 +27,7 @@ async function queryVision(imageBase64: string, prompt: string): Promise<string>
       messages: [{ role: "user", content: prompt, images: [imageBase64] }],
       stream: false,
       think: false,
-      options: { temperature: 0.8, top_p: 0.9, num_predict: 200, num_ctx: 4096 },
+      options: { temperature: 0.8, top_p: 0.9, num_predict: 300, num_ctx: 4096 },
     }),
   });
   if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
@@ -35,9 +35,8 @@ async function queryVision(imageBase64: string, prompt: string): Promise<string>
   let text = (json.message?.content || "").trim();
   // Fallback: if model still used thinking mode, extract from thinking field
   if (!text && json.message?.thinking) {
-    const cleaned = (json.message.thinking as string).replace(/<think>|<\/think>/g, "").trim();
-    const lines = cleaned.split("\n").map((l: string) => l.trim()).filter((l: string) => l.length > 20);
-    text = lines.length > 0 ? lines[lines.length - 1] : "";
+    // Model returned thinking instead of content despite think:false — treat as failure
+    text = "";
   }
   return text.replace(/^["']|["']$/g, "").trim();
 }
@@ -45,7 +44,7 @@ async function queryVision(imageBase64: string, prompt: string): Promise<string>
 const TIMES_OF_DAY = [
   "early morning, just after sunrise, long shadows, cool blue-pink light",
   "mid-morning, bright clear light, crisp shadows",
-  "high noon, overhead sun, minimal shadows, vivid colors",
+  "bright midday, slight west-angled sun, strong clean shadows, deep blue sky",
   "early afternoon, warm direct light, deep blue sky",
   "late afternoon, golden angled light, warm tones",
   "golden hour, low sun, long golden shadows, rich warm light",
@@ -57,8 +56,32 @@ const TIMES_OF_DAY = [
   "winter light, pale low sun, cold blue shadows, crisp air",
 ];
 
-function getTimeOfDay(fips: string): string {
-  const hash = fips.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+const SEASONS = [
+  "spring, fresh green buds, wildflowers blooming, soft new growth",
+  "early summer, lush deep green, long warm days",
+  "late summer, golden dry grass, heat haze, mature crops",
+  "autumn, brilliant fall colors, orange and red foliage, harvest time",
+  "late autumn, bare branches, fallen leaves, grey-brown tones",
+  "winter, snow-covered, bare trees, cold crisp air, low pale sun",
+];
+
+function getSeason(key: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  // Use a different offset so season and time don't correlate
+  return SEASONS[(hash >>> 4) % SEASONS.length];
+}
+
+function getTimeOfDay(key: string): string {
+  // FNV-1a hash for even distribution across 12 buckets
+  let hash = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
   return TIMES_OF_DAY[hash % TIMES_OF_DAY.length];
 }
 
@@ -69,6 +92,7 @@ function buildPrompt(
 ): string {
   const mood = RARITY_MOODS[county.rarity] || RARITY_MOODS.common;
   const timeOfDay = getTimeOfDay(county.name + county.state_abbr);
+  const season = getSeason(county.state_abbr + county.name); // reversed for independence
 
   const wikiSection = wikiExtract
     ? `\nFACTS ABOUT THIS PLACE: ${wikiExtract.substring(0, 400)}\n`
@@ -80,10 +104,12 @@ ${wikiSection}
 This will become a landscape painting prompt. Write a vivid 40-60 word scene description that:
 - Describes the SPECIFIC things visible: architectural style, tree types, road surface, horizon line, cloud formations
 - Set the scene at this time: ${timeOfDay}
+- Season: ${season}
 - Uses ${mood} mood
 - Captures what makes THIS place different from anywhere else
 
 NEVER mention: county names, state names, "photo", "image", "street view", "Google", cameras, cars, road signs, or text.
+Output exactly one paragraph — no preamble, no explanation, no options.
 Write ONLY the scene description, nothing else:`;
   }
 
@@ -92,10 +118,12 @@ ${wikiSection}
 This will become a landscape painting prompt. Write a vivid 40-60 word scene description that:
 - Names the SPECIFIC landscape features visible (e.g., "a wide brown river bends through dense pine forest" not "varied terrain with waterways")
 - Set the scene at this time: ${timeOfDay}
+- Season: ${season}
 - Uses ${mood} mood
 - Is UNIQUE to this exact location — avoid generic phrases like "patchwork fields" or "rolling landscape"
 
 NEVER mention: county names, state names, "satellite", "aerial", or "image".
+Output exactly one paragraph — no preamble, no explanation, no options.
 Write ONLY the scene description, nothing else:`;
 }
 
@@ -104,8 +132,9 @@ function cleanDescription(raw: string, countyName: string, stateName: string): s
 
   // Take longest line if multi-line
   if (desc.includes("\n")) {
-    const lines = desc.split("\n").map(l => l.trim()).filter(Boolean);
-    desc = lines.reduce((a, b) => a.length > b.length ? a : b);
+    const lines = desc.split("\n").map(l => l.trim()).filter(l => l.length > 20);
+    // Take the last substantial line — preambles come first, description last
+    desc = lines.length > 0 ? lines[lines.length - 1] : desc;
   }
 
   // Cap at 500 chars — truncate at last sentence boundary
@@ -281,7 +310,8 @@ async function main() {
   for (let i = 0; i < counties.length; i++) {
     const county = counties[i];
 
-    // Pick best image: Street View > Satellite
+    // Prefer satellite for landscape art — shows terrain, rivers, forests
+    // Street View shows roads/parking lots which make bad landscape paintings
     const svPath = join(SV_DIR, county.fips + ".jpg");
     const satPathPng = join(SAT_DIR, county.fips + ".png");
     const satPathJpg = join(SAT_DIR, county.fips + ".jpg");
@@ -290,14 +320,14 @@ async function main() {
     let imagePath: string;
     let imageType: "streetview" | "satellite";
 
-    if (existsSync(svPath)) {
-      imagePath = svPath;
-      imageType = "streetview";
-      svUsed++;
-    } else if (existsSync(satPath)) {
+    if (existsSync(satPath)) {
       imagePath = satPath;
       imageType = "satellite";
       satUsed++;
+    } else if (existsSync(svPath)) {
+      imagePath = svPath;
+      imageType = "streetview";
+      svUsed++;
     } else {
       failed++;
       errors.push(`${county.fips}: no image available`);

@@ -112,14 +112,16 @@ RARITY_MOODS = {
 
 NEGATIVE_PROMPT = (
     "text, words, letters, watermark, signature, people, faces, "
-    "blurry, low quality, oversaturated, cartoon, anime, "
-    "painting, brushstrokes, sketch, drawing, illustration"
+    "blurry, low quality, noisy, grain, jpeg artifact, "
+    "cartoon, anime, flat colors, plastic, toy, 3d render"
 )
 
 
 def build_prompt(description, state_abbr, rarity):
     mood = RARITY_MOODS.get(rarity, RARITY_MOODS["common"])
-    return f"{description}, {mood}, highly detailed, sharp focus, 8k uhd, masterpiece quality"
+    palette = REGION_MAP.get(state_abbr, "")
+    palette_hint = f", color palette: {palette}" if palette else ""
+    return f"{description}, {mood}{palette_hint}, digital painting, concept art, wide landscape panoramic view, horizon in upper third, atmospheric perspective, masterful composition"
 
 
 def build_workflow(prompt, negative, seed, steps, cfg, denoise=1.0, input_image=None):
@@ -415,7 +417,7 @@ def main():
             uploaded = upload_image(str(art_path))
             if not uploaded:
                 break
-            pid = queue_prompt(build_workflow(prompt, NEGATIVE_PROMPT, seed + 1, tier["steps"], tier["cfg"], denoise, uploaded))
+            pid = queue_prompt(build_workflow(prompt, NEGATIVE_PROMPT, seed, tier["steps"], tier["cfg"], denoise, uploaded))
             if not pid:
                 break
             hist = wait_for_completion(pid)
@@ -482,7 +484,7 @@ def main():
                     uploaded = upload_image(str(art_path))
                     if not uploaded:
                         break
-                    pid = queue_prompt(build_workflow(prompt, NEGATIVE_PROMPT, seed + 1, tier["steps"], tier["cfg"], denoise, uploaded))
+                    pid = queue_prompt(build_workflow(prompt, NEGATIVE_PROMPT, seed, tier["steps"], tier["cfg"], denoise, uploaded))
                     if not pid:
                         break
                     hist = wait_for_completion(pid)
