@@ -42,12 +42,33 @@ async function queryVision(imageBase64: string, prompt: string): Promise<string>
   return text.replace(/^["']|["']$/g, "").trim();
 }
 
+const TIMES_OF_DAY = [
+  "early morning, just after sunrise, long shadows, cool blue-pink light",
+  "mid-morning, bright clear light, crisp shadows",
+  "high noon, overhead sun, minimal shadows, vivid colors",
+  "early afternoon, warm direct light, deep blue sky",
+  "late afternoon, golden angled light, warm tones",
+  "golden hour, low sun, long golden shadows, rich warm light",
+  "dusk, deep orange and purple sky, silhouettes forming",
+  "blue hour, deep blue twilight, first lights appearing",
+  "overcast day, soft diffused light, muted tones, moody atmosphere",
+  "misty morning, fog lifting, ethereal soft light",
+  "stormy sky, dramatic dark clouds, shafts of light breaking through",
+  "winter light, pale low sun, cold blue shadows, crisp air",
+];
+
+function getTimeOfDay(fips: string): string {
+  const hash = fips.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  return TIMES_OF_DAY[hash % TIMES_OF_DAY.length];
+}
+
 function buildPrompt(
   county: { name: string; state_name: string; state_abbr: string; rarity: string; display_population: string; display_area: string },
   wikiExtract: string | null,
   imageType: "streetview" | "satellite",
 ): string {
   const mood = RARITY_MOODS[county.rarity] || RARITY_MOODS.common;
+  const timeOfDay = getTimeOfDay(county.name + county.state_abbr);
 
   const wikiSection = wikiExtract
     ? `\nFACTS ABOUT THIS PLACE: ${wikiExtract.substring(0, 400)}\n`
@@ -58,7 +79,7 @@ function buildPrompt(
 ${wikiSection}
 This will become a landscape painting prompt. Write a vivid 40-60 word scene description that:
 - Describes the SPECIFIC things visible: architectural style, tree types, road surface, horizon line, cloud formations
-- Picks ONE time of day and commits to it
+- Set the scene at this time: ${timeOfDay}
 - Uses ${mood} mood
 - Captures what makes THIS place different from anywhere else
 
@@ -70,7 +91,7 @@ Write ONLY the scene description, nothing else:`;
 ${wikiSection}
 This will become a landscape painting prompt. Write a vivid 40-60 word scene description that:
 - Names the SPECIFIC landscape features visible (e.g., "a wide brown river bends through dense pine forest" not "varied terrain with waterways")
-- Picks ONE time of day and commits to it
+- Set the scene at this time: ${timeOfDay}
 - Uses ${mood} mood
 - Is UNIQUE to this exact location — avoid generic phrases like "patchwork fields" or "rolling landscape"
 

@@ -119,7 +119,7 @@ NEGATIVE_PROMPT = (
 
 def build_prompt(description, state_abbr, rarity):
     mood = RARITY_MOODS.get(rarity, RARITY_MOODS["common"])
-    return f"{description}, {mood}, beautiful landscape, cinematic lighting, detailed, 8k, masterpiece"
+    return f"{description}, {mood}, highly detailed, sharp focus, 8k uhd, masterpiece quality"
 
 
 def build_workflow(prompt, negative, seed, steps, cfg, denoise=1.0, input_image=None):
