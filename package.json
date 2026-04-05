@@ -11,7 +11,10 @@
     "pipeline:fema": "tsx pipeline/sources/04-fema-disasters.ts",
     "pipeline:curate": "tsx pipeline/curate/select-500.ts",
     "pipeline:derive": "tsx pipeline/derive/compute-stats.ts",
-    "pipeline:all": "tsx pipeline/sources/00-gazetteer.ts && tsx pipeline/sources/01-census-acs.ts && tsx pipeline/sources/02-bea-gdp.ts && tsx pipeline/sources/03-health-rankings.ts && tsx pipeline/sources/04-fema-disasters.ts && tsx pipeline/curate/select-500.ts && tsx pipeline/derive/compute-stats.ts"
+    "pipeline:all": "tsx pipeline/sources/00-gazetteer.ts && tsx pipeline/sources/01-census-acs.ts && tsx pipeline/sources/02-bea-gdp.ts && tsx pipeline/sources/03-health-rankings.ts && tsx pipeline/sources/04-fema-disasters.ts && tsx pipeline/curate/select-500.ts && tsx pipeline/derive/compute-stats.ts",
+    "pipeline": "tsx pipeline/launch.ts",
+    "pipeline:check": "tsx pipeline/launch.ts --check",
+    "pipeline:dashboard": "tsx pipeline/dashboard/server.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
