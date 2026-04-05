@@ -104,7 +104,7 @@ async function main() {
   console.log(`Output: ${DESCRIPTIONS_FILE}\n`);
 
   // Dependency checks
-  if (!existsSync(SAT_DIR) || readdirSync(SAT_DIR).filter(f => f.endsWith(".jpg")).length === 0) {
+  if (!existsSync(SAT_DIR) || readdirSync(SAT_DIR).filter(f => f.endsWith(".jpg") || f.endsWith(".png")).length === 0) {
     console.error("ERROR: No satellite tiles found. Run Stage 1 first.");
     process.exit(1);
   }
@@ -221,7 +221,9 @@ async function main() {
   // Warm up the vision model (first call loads it into VRAM, can take 30-60s)
   console.log("Loading vision model into VRAM (this may take 30-60 seconds on first run)...");
   try {
-    const warmupPath = join(SAT_DIR, counties[0].fips + ".jpg");
+    const warmupJpg = join(SAT_DIR, counties[0].fips + ".jpg");
+    const warmupPng = join(SAT_DIR, counties[0].fips + ".png");
+    const warmupPath = existsSync(warmupPng) ? warmupPng : warmupJpg;
     if (existsSync(warmupPath)) {
       const img = readFileSync(warmupPath).toString("base64");
       await queryVision(img, "Describe this image in 5 words.");
@@ -239,7 +241,9 @@ async function main() {
 
   for (let i = 0; i < counties.length; i++) {
     const county = counties[i];
-    const satPath = join(SAT_DIR, county.fips + ".jpg");
+    const satPathJpg = join(SAT_DIR, county.fips + ".jpg");
+    const satPathPng = join(SAT_DIR, county.fips + ".png");
+    const satPath = existsSync(satPathPng) ? satPathPng : satPathJpg;
     if (!existsSync(satPath)) {
       failed++;
       errors.push(`${county.fips}: no satellite tile`);

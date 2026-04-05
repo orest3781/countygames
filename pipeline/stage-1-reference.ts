@@ -17,46 +17,63 @@ const WIKI_FILE = "data/wiki.json";
 
 // ─── Satellite tile download ───
 
-function latLngToTile(lat: number, lng: number, zoom: number): { x: number; y: number } {
+const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || "";
+
+function googleSatelliteUrl(lat: number, lng: number): string {
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=13&size=640x640&maptype=satellite&key=${GOOGLE_API_KEY}`;
+}
+
+function esriTileUrl(lat: number, lng: number, zoom = 14): string {
   const n = Math.pow(2, zoom);
   const x = Math.floor(((lng + 180) / 360) * n);
   const y = Math.floor(
     ((1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2) * n
   );
-  return { x, y };
-}
-
-function esriTileUrl(lat: number, lng: number, zoom = 11): string {
-  const { x, y } = latLngToTile(lat, lng, zoom);
   return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}`;
 }
 
-function isValidJpeg(buf: Buffer): boolean {
-  return buf.length > 2 && buf[0] === 0xff && buf[1] === 0xd8;
+function isValidImage(buf: Buffer): boolean {
+  // JPEG: FF D8, PNG: 89 50 4E 47
+  return buf.length > 4 && (
+    (buf[0] === 0xff && buf[1] === 0xd8) ||
+    (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47)
+  );
 }
 
 async function downloadSatelliteTiles(counties: { fips: string; latitude: number; longitude: number }[]): Promise<number> {
   mkdirSync(SAT_DIR, { recursive: true });
 
-  const existing = new Set(readdirSync(SAT_DIR).filter(f => f.endsWith(".jpg")).map(f => f.replace(".jpg", "")));
+  // Accept both .jpg and .png (Google returns PNG)
+  const existing = new Set(
+    readdirSync(SAT_DIR)
+      .filter(f => f.endsWith(".jpg") || f.endsWith(".png"))
+      .map(f => f.replace(/\.(jpg|png)$/, ""))
+  );
   const todo = counties.filter(c => !existing.has(c.fips) && c.latitude && c.longitude);
 
+  const useGoogle = !!GOOGLE_API_KEY;
+  console.log(`Satellite source: ${useGoogle ? "Google Maps Static API (640x640)" : "ESRI World Imagery (256x256 fallback)"}`);
   console.log(`Satellite tiles: ${existing.size} existing, ${todo.length} to download`);
   let downloaded = 0;
   let failed = 0;
 
   for (let i = 0; i < todo.length; i++) {
     const c = todo[i];
-    const url = esriTileUrl(c.latitude, c.longitude);
-    const outPath = join(SAT_DIR, `${c.fips}.jpg`);
+    const ext = useGoogle ? "png" : "jpg";
+    const outPath = join(SAT_DIR, `${c.fips}.${ext}`);
 
     let success = false;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
+        // Try Google first, fall back to ESRI
+        const url = (useGoogle && attempt < 2)
+          ? googleSatelliteUrl(c.latitude, c.longitude)
+          : esriTileUrl(c.latitude, c.longitude);
         const res = await fetch(url);
         if (!res.ok) continue;
         const buf = Buffer.from(await res.arrayBuffer());
-        if (!isValidJpeg(buf)) continue;
+        if (!isValidImage(buf)) continue;
+        if (buf.length < 1000) continue; // Skip tiny error images
         writeFileSync(outPath, buf);
         success = true;
         break;
@@ -67,10 +84,11 @@ async function downloadSatelliteTiles(counties: { fips: string; latitude: number
     if (success) downloaded++;
     else failed++;
 
-    if ((i + 1) % 100 === 0 || i < 5) {
+    if ((i + 1) % 100 === 0 || i < 10) {
       console.log(`  [${i + 1}/${todo.length}] downloaded: ${downloaded}, failed: ${failed}`);
     }
-    await new Promise(r => setTimeout(r, 100)); // rate limit
+    // Rate limit: Google allows 50 QPS, but be conservative
+    await new Promise(r => setTimeout(r, useGoogle ? 200 : 100));
   }
 
   const total = existing.size + downloaded;
