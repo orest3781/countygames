@@ -2,7 +2,7 @@
  * County Wars Pipeline v2 — Read-only monitoring dashboard.
  *
  * Usage: npx tsx pipeline/dashboard/server.ts
- * Then open http://localhost:3333
+ * Then open http://localhost:9333
  *
  * This is a read-only dashboard. It does NOT start/stop pipeline stages.
  * It reads data/.status.json and scans data/ folders for file counts.
@@ -12,7 +12,7 @@ import http from "http";
 import { readdirSync, readFileSync, existsSync, statSync } from "fs";
 import { join, extname } from "path";
 
-const PORT = 3333;
+const PORT = 9333;
 const DATA_DIR = join(process.cwd(), "data");
 const TOTAL_COUNTIES = 3144;
 

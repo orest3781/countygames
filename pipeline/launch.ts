@@ -278,7 +278,7 @@ async function main() {
   }
 
   // 6. Start dashboard in background
-  console.log("\n  Starting dashboard at http://localhost:3333 ...");
+  console.log("\n  Starting dashboard at http://localhost:9333 ...");
   const dashboard = spawn("npx", ["tsx", "pipeline/dashboard/server.ts"], {
     detached: true,
     stdio: "ignore",
