@@ -278,7 +278,7 @@ async function main() {
   }
 
   // 6. Start dashboard in background (kill any existing instance first)
-  console.log("\n  Starting dashboard at http://localhost:9333 ...");
+  console.log("\n  Starting dashboard at http://localhost:9444 ...");
   const pidFile = join(process.cwd(), "data", ".dashboard-pid");
   // Kill previous dashboard if running
   if (existsSync(pidFile)) {
