@@ -123,8 +123,16 @@ function streetViewImageUrl(address: string): string {
   return `https://maps.googleapis.com/maps/api/streetview?location=${encodeURIComponent(address)}&size=640x640&fov=110&pitch=10&source=outdoor&key=${GOOGLE_API_KEY}`;
 }
 
-function buildCourthouseAddress(countyName: string, stateName: string): string {
-  // "County Courthouse, Autauga County, Alabama"
+function buildCourthouseAddress(countyName: string, stateName: string): string | null {
+  // Skip entities that don't have courthouses
+  if (countyName.includes("Planning Region") || countyName.includes("Census Area")) return null;
+  // Louisiana parishes
+  if (countyName.includes(" Parish")) return `Parish Courthouse, ${countyName}, ${stateName}`;
+  // Alaska boroughs
+  if (countyName.includes(" Borough")) return `Borough Hall, ${countyName}, ${stateName}`;
+  // Virginia independent cities (no "County" in name)
+  if (stateName === "Virginia" && !countyName.includes(" County")) return `City Hall, ${countyName}, ${stateName}`;
+  // Default
   return `County Courthouse, ${countyName}, ${stateName}`;
 }
 
@@ -152,6 +160,11 @@ async function downloadStreetView(counties: { fips: string; name: string; state_
   for (let i = 0; i < todo.length; i++) {
     const c = todo[i];
     const address = buildCourthouseAddress(c.name, c.state_name);
+    if (!address) {
+      // No courthouse for this entity type — skip Street View
+      await new Promise(r => setTimeout(r, 50));
+      continue;
+    }
 
     // Step 1: Free metadata check
     const meta = await checkStreetViewCoverage(address);

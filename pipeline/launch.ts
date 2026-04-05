@@ -22,11 +22,9 @@ const OLLAMA_URL = "http://127.0.0.1:11434";
 const COMFYUI_URL = "http://127.0.0.1:8188";
 const COMFYUI_DIR = "A:/ComfyUI_Fresh";
 const CHECKPOINT_DIR = join(COMFYUI_DIR, "models", "checkpoints");
-const LORA_DIR = join(COMFYUI_DIR, "models", "loras");
 
-const REQUIRED_OLLAMA_MODELS = ["qwen3-vl:8b", "qwen3:14b"];
+const REQUIRED_OLLAMA_MODELS = ["gemma4:e4b", "qwen3:14b"];
 const REQUIRED_CHECKPOINT = "juggernautXL_ragnarokBy.safetensors";
-const REQUIRED_LORAS = ["ClassipeintXL2.1.safetensors", "Hyper-SDXL-8steps-CFG-lora.safetensors"];
 
 // ─── Helpers ───
 
@@ -161,22 +159,6 @@ function checkModelFiles(): boolean {
     console.log(`  [FAIL] Missing: ${ckpt}`);
     console.log(`         Download from: https://civitai.com/models/133005`);
     ok = false;
-  }
-
-  // LoRAs
-  for (const lora of REQUIRED_LORAS) {
-    const p = join(LORA_DIR, lora);
-    if (existsSync(p)) {
-      console.log(`  [OK] ${lora}`);
-    } else {
-      console.log(`  [FAIL] Missing: ${p}`);
-      if (lora.includes("Hyper")) {
-        console.log(`         Download from: https://huggingface.co/ByteDance/Hyper-SD`);
-      } else {
-        console.log(`         Download from: https://civitai.com/models/127139`);
-      }
-      ok = false;
-    }
   }
 
   return ok;

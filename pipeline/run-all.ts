@@ -12,7 +12,7 @@ import { join } from "path";
 
 const COMFYUI_URL = "http://127.0.0.1:8188";
 const CHECKPOINT_DIR = "A:/ComfyUI_Fresh/models/checkpoints";
-const LORA_DIR = "A:/ComfyUI_Fresh/models/loras";
+
 
 async function preflight(): Promise<boolean> {
   console.log("=== Pre-flight Checks ===\n");
@@ -24,10 +24,10 @@ async function preflight(): Promise<boolean> {
     const tags = await res.json();
     const models = (tags.models || []).map((m: any) => m.name);
 
-    if (models.some((m: string) => m.includes("qwen3-vl"))) {
-      console.log("[OK] Model qwen3-vl:8b available");
+    if (models.some((m: string) => m.includes("gemma4"))) {
+      console.log("[OK] Model gemma4:e4b available");
     } else {
-      console.log("[FAIL] Model qwen3-vl:8b not found. Run: ollama pull qwen3-vl:8b");
+      console.log("[FAIL] Model gemma4:e4b not found. Run: ollama pull gemma4:e4b");
       ok = false;
     }
 
@@ -59,17 +59,6 @@ async function preflight(): Promise<boolean> {
   } else {
     console.log("[FAIL] Checkpoint not found: " + ckpt);
     ok = false;
-  }
-
-  // LoRAs
-  for (const lora of ["Hyper-SDXL-8steps-CFG-lora.safetensors", "ClassipeintXL2.1.safetensors"]) {
-    const p = join(LORA_DIR, lora);
-    if (existsSync(p)) {
-      console.log(`[OK] LoRA ${lora} found`);
-    } else {
-      console.log(`[FAIL] LoRA not found: ${p}`);
-      ok = false;
-    }
   }
 
   // Supabase

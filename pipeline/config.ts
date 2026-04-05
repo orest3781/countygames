@@ -255,7 +255,15 @@ export function loadStatus(): PipelineStatus {
 }
 
 export function saveStatus(status: PipelineStatus): void {
-  writeFileSync(STATUS_FILE, JSON.stringify(status, null, 2));
+  const content = JSON.stringify(status, null, 2);
+  const tmp = STATUS_FILE + ".tmp";
+  writeFileSync(tmp, content);
+  try {
+    renameSync(tmp, STATUS_FILE);
+  } catch {
+    writeFileSync(STATUS_FILE, content);
+    try { unlinkSync(tmp); } catch { /* ignore */ }
+  }
 }
 
 // ─── Ollama helpers ───
@@ -279,7 +287,15 @@ export async function unloadOllamaModels(): Promise<void> {
 
 export function loadJson<T = Record<string, unknown>>(filename: string): T {
   const filepath = join(process.cwd(), filename);
-  try { return JSON.parse(readFileSync(filepath, "utf-8")); } catch { return {} as T; }
+  if (!existsSync(filepath)) return {} as T;
+  try {
+    return JSON.parse(readFileSync(filepath, "utf-8"));
+  } catch (e) {
+    console.error(`[WARN] ${filename} is corrupt or invalid JSON — starting fresh.`);
+    console.error(`  Error: ${(e as Error).message}`);
+    console.error(`  Back up the file before retrying if you want to recover data.`);
+    return {} as T;
+  }
 }
 
 export function saveJson(filename: string, data: unknown): void {

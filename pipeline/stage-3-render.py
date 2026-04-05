@@ -120,8 +120,12 @@ NEGATIVE_PROMPT = (
 def build_prompt(description, state_abbr, rarity):
     mood = RARITY_MOODS.get(rarity, RARITY_MOODS["common"])
     palette = REGION_MAP.get(state_abbr, "")
-    palette_hint = f", color palette: {palette}" if palette else ""
-    return f"{description}, {mood}{palette_hint}, digital painting, concept art, wide landscape panoramic view, horizon in upper third, atmospheric perspective, masterful composition"
+    palette_hint = f", {palette}" if palette else ""
+    # Style prefix goes FIRST so CLIP truncation drops description tail, not composition rules
+    style = f"digital painting, concept art, wide landscape panoramic view, atmospheric perspective{palette_hint}, {mood}"
+    # Cap description to ~250 chars to stay within 77-token CLIP budget
+    desc = description[:250]
+    return f"{style}, {desc}"
 
 
 def build_workflow(prompt, negative, seed, steps, cfg, denoise=1.0, input_image=None):
@@ -254,16 +258,18 @@ def update_status(rendered, total):
                 status = json.load(f)
         else:
             status = {}
-    except:
+    except (json.JSONDecodeError, OSError):
         status = {}
     status["stage3"] = {
-        "complete": rendered >= total and (total == 0 or (total - rendered) / total < 0.05),
+        "complete": total == 0 or (total - rendered) / total < 0.05,
         "rendered": rendered,
         "total": total,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
-    with open(STATUS_FILE, "w") as f:
+    tmp = str(STATUS_FILE) + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(status, f, indent=2)
+    shutil.move(tmp, str(STATUS_FILE))
 
 
 COMFYUI_CHECKPOINTS_DIR = Path(os.environ.get("COMFYUI_CHECKPOINTS", "A:/ComfyUI_Fresh/models/checkpoints"))
@@ -301,20 +307,26 @@ def preflight():
 
 
 def load_descriptions():
-    """Load descriptions.json, returning dict. Safe to call repeatedly."""
     if not DESCRIPTIONS_FILE.exists():
         return {}
-    with open(DESCRIPTIONS_FILE) as f:
-        return json.load(f)
+    try:
+        with open(DESCRIPTIONS_FILE) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        print("  [warn] descriptions.json unreadable — will retry next poll")
+        return {}
 
 
 def load_cards_meta():
-    """Load cards-meta.json, returning dict. Safe to call repeatedly."""
     meta_file = Path("data/cards-meta.json")
     if not meta_file.exists():
         return {}
-    with open(meta_file) as f:
-        return json.load(f)
+    try:
+        with open(meta_file) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        print("  [warn] cards-meta.json unreadable — will retry next poll")
+        return {}
 
 
 def get_todo(descriptions, cards_meta):
@@ -322,6 +334,8 @@ def get_todo(descriptions, cards_meta):
     todo = []
     skip = 0
     for fips, desc in descriptions.items():
+        if not desc or not desc.strip():
+            continue
         art_path = ART_DIR / f"{fips}.png"
         if art_path.exists() and is_valid_png(str(art_path)):
             skip += 1
@@ -462,6 +476,8 @@ def main():
             stale_rounds = 0
             print(f"\n  [follow] Found {len(new_todo)} new descriptions to render\n")
             for i, card in enumerate(new_todo):
+                if not card["description"] or not card["description"].strip():
+                    continue
                 fips = card["fips"]
                 rarity = card["rarity"]
                 tier = RARITY_TIERS.get(rarity, RARITY_TIERS["common"])

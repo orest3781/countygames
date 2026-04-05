@@ -133,8 +133,8 @@ function cleanDescription(raw: string, countyName: string, stateName: string): s
   // Take longest line if multi-line
   if (desc.includes("\n")) {
     const lines = desc.split("\n").map(l => l.trim()).filter(l => l.length > 20);
-    // Take the last substantial line — preambles come first, description last
-    desc = lines.length > 0 ? lines[lines.length - 1] : desc;
+    // Take the longest line — actual descriptions are longer than preambles or meta-comments
+    desc = lines.length > 0 ? lines.reduce((a, b) => a.length >= b.length ? a : b) : desc;
   }
 
   // Cap at 500 chars — truncate at last sentence boundary
