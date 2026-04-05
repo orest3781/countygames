@@ -320,37 +320,25 @@ def preflight():
     return True
 
 
-def main():
-    print("=== Stage 3: Render ===\n")
-
-    if not preflight():
-        sys.exit(1)
-
-    # Load descriptions + rarity data
+def load_descriptions():
+    """Load descriptions.json, returning dict. Safe to call repeatedly."""
+    if not DESCRIPTIONS_FILE.exists():
+        return {}
     with open(DESCRIPTIONS_FILE) as f:
-        descriptions = json.load(f)
-    print(f"Descriptions loaded: {len(descriptions)}")
+        return json.load(f)
 
-    # Load rarity data from CSV or descriptions keys
-    # We need state_abbr + rarity for each FIPS. Read from a supplementary file.
-    # The simplest approach: load from Supabase via a pre-exported JSON.
-    # For the Python script, we'll read a cards-meta.json that stage-2 can also write.
-    # OR: we can read the CSV export if it exists.
-    # Simplest: read directly from the descriptions and a separate meta file.
 
-    # Load card metadata (fips -> {state_abbr, rarity})
-    META_FILE = Path("data/cards-meta.json")
-    if not META_FILE.exists():
-        print(f"ERROR: {META_FILE} not found. Run Stage 2 first.")
-        sys.exit(1)
+def load_cards_meta():
+    """Load cards-meta.json, returning dict. Safe to call repeatedly."""
+    meta_file = Path("data/cards-meta.json")
+    if not meta_file.exists():
+        return {}
+    with open(meta_file) as f:
+        return json.load(f)
 
-    with open(META_FILE) as f:
-        cards_meta = json.load(f)
-    print(f"Card metadata loaded: {len(cards_meta)} entries")
 
-    ART_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Filter to counties that need rendering
+def get_todo(descriptions, cards_meta):
+    """Build list of counties that need rendering."""
     todo = []
     skip = 0
     for fips, desc in descriptions.items():
@@ -365,11 +353,48 @@ def main():
             "state_abbr": meta.get("state_abbr", ""),
             "rarity": meta.get("rarity", "common"),
         })
+    return todo, skip
 
+
+def main():
+    print("=== Stage 3: Render ===\n")
+
+    if not preflight():
+        sys.exit(1)
+
+    # Check for --follow flag: poll for new descriptions instead of one-shot
+    follow_mode = "--follow" in sys.argv
+    if follow_mode:
+        print("Follow mode: will poll for new descriptions every 30s\n")
+
+    ART_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Load initial data
+    descriptions = load_descriptions()
+    cards_meta = load_cards_meta()
+
+    if not descriptions:
+        if follow_mode:
+            print("No descriptions yet. Waiting for Stage 2 to produce data...")
+        else:
+            print("ERROR: data/descriptions.json not found or empty. Run Stage 2 first.")
+            sys.exit(1)
+
+    if not cards_meta:
+        if follow_mode:
+            print("No cards-meta.json yet. Waiting for Stage 2...")
+        else:
+            print("ERROR: data/cards-meta.json not found. Run Stage 2 first.")
+            sys.exit(1)
+
+    print(f"Descriptions loaded: {len(descriptions)}")
+    print(f"Card metadata loaded: {len(cards_meta)} entries")
+
+    todo, skip = get_todo(descriptions, cards_meta)
     total = skip + len(todo)
     print(f"\nSkipped (existing): {skip} | To render: {len(todo)} | Total: {total}\n")
 
-    if not todo:
+    if not todo and not follow_mode:
         update_status(total, total)
         print("All done!")
         return
@@ -439,11 +464,67 @@ def main():
 
     update_status(skip + gen, total)
 
+    # Follow mode: poll for new descriptions and render them
+    if follow_mode:
+        poll_interval = 30
+        stale_rounds = 0
+        while stale_rounds < 10:  # stop after 5 min of no new work
+            time.sleep(poll_interval)
+            new_desc = load_descriptions()
+            new_meta = load_cards_meta()
+            new_todo, new_skip = get_todo(new_desc, new_meta)
+            if not new_todo:
+                stale_rounds += 1
+                total_now = new_skip + gen
+                update_status(total_now, total_now)
+                print(f"  [follow] No new work. Waiting... ({stale_rounds}/10 before exit)")
+                continue
+            stale_rounds = 0
+            print(f"\n  [follow] Found {len(new_todo)} new descriptions to render\n")
+            for i, card in enumerate(new_todo):
+                fips = card["fips"]
+                rarity = card["rarity"]
+                tier = RARITY_TIERS.get(rarity, RARITY_TIERS["common"])
+                art_path = ART_DIR / f"{fips}.png"
+                prompt = build_prompt(card["description"], card["state_abbr"], rarity)
+                seed = int(hashlib.md5(f"{fips}-v2".encode()).hexdigest(), 16) % (2**32)
+                pid = queue_prompt(build_workflow(prompt, NEGATIVE_PROMPT, seed, tier["steps"], tier["cfg"]))
+                if not pid:
+                    fail += 1
+                    continue
+                hist = wait_for_completion(pid)
+                if not hist:
+                    fail += 1
+                    continue
+                fn = get_output_image(hist)
+                if not fn or not download_output(fn, str(art_path)):
+                    fail += 1
+                    continue
+                for denoise in tier["polish"]:
+                    uploaded = upload_image(str(art_path))
+                    if not uploaded:
+                        break
+                    pid = queue_prompt(build_workflow(prompt, NEGATIVE_PROMPT, seed + 1, tier["steps"], tier["cfg"], denoise, uploaded))
+                    if not pid:
+                        break
+                    hist = wait_for_completion(pid)
+                    if not hist:
+                        break
+                    fn = get_output_image(hist)
+                    if fn:
+                        download_output(fn, str(art_path))
+                gen += 1
+                if (i + 1) % 10 == 0 or i < 3:
+                    print(f"  [{i+1}/{len(new_todo)}] {fips} ({rarity})")
+                if (i + 1) % 50 == 0:
+                    update_status(new_skip + gen, new_skip + gen + len(new_todo) - (i + 1))
+        print(f"\n  [follow] No new work for 5 min. Exiting follow mode.")
+
     elapsed = (time.time() - t0) / 60
     print(f"\n=== Stage 3 Complete in {elapsed:.1f} min ===")
     print(f"Generated: {gen} | Failed: {fail} | Total: {skip + gen}")
 
-    if fail > 0 and fail / len(todo) >= 0.05:
+    if fail > 0 and len(todo) > 0 and fail / len(todo) >= 0.05:
         print(f"\nERROR: {fail / len(todo) * 100:.1f}% failure rate.")
         sys.exit(1)
 
