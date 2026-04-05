@@ -206,6 +206,19 @@ async function main() {
     return;
   }
 
+  // Warm up the vision model (first call loads it into VRAM, can take 30-60s)
+  console.log("Loading vision model into VRAM (this may take 30-60 seconds on first run)...");
+  try {
+    const warmupPath = join(SAT_DIR, counties[0].fips + ".jpg");
+    if (existsSync(warmupPath)) {
+      const img = readFileSync(warmupPath).toString("base64");
+      await queryVision(img, "Describe this image in 5 words.");
+      console.log("Vision model ready.\n");
+    }
+  } catch (err: any) {
+    console.log(`Warmup warning: ${err.message} (will retry on first county)\n`);
+  }
+
   let generated = 0;
   let failed = 0;
   const errors: string[] = [];
@@ -240,7 +253,7 @@ async function main() {
       // Save periodically (crash-safe)
       descSaver.save(descriptions);
 
-      if ((i + 1) % 25 === 0 || i < 5) {
+      if ((i + 1) % 10 === 0 || i < 10) {
         const elapsed = (Date.now() - t0) / 1000;
         const rate = generated / elapsed;
         const eta = (counties.length - (i + 1)) / Math.max(rate, 0.01) / 60;
