@@ -30,12 +30,22 @@ async function queryLLM(prompt: string): Promise<string> {
       model: TEXT_MODEL,
       prompt,
       stream: false,
-      options: { temperature: 0.8, num_predict: 150 },
+      options: { temperature: 0.8, num_predict: 800 },
     }),
   });
   if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
   const json = await res.json();
-  return (json.response || "").trim();
+  let text = (json.response || "").trim();
+  // Qwen3 uses thinking mode — strip think tags to get the actual answer
+  text = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  // If still empty after stripping, the model may not have finished thinking
+  if (!text && json.response && json.response.includes("<think>")) {
+    // Extract last meaningful line from the thinking content
+    const inner = json.response.replace(/<think>|<\/think>/g, "").trim();
+    const lines = inner.split("\n").map((l: string) => l.trim()).filter((l: string) => l.length > 10);
+    text = lines.length > 0 ? lines[lines.length - 1] : "";
+  }
+  return text.replace(/^["']|["']$/g, "").trim();
 }
 
 function buildFlavorPrompt(name: string, stateName: string, pop: string, area: string, disasters: string): string {

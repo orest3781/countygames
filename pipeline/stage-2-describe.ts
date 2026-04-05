@@ -25,12 +25,28 @@ async function queryVision(imageBase64: string, prompt: string): Promise<string>
       model: VISION_MODEL,
       messages: [{ role: "user", content: prompt, images: [imageBase64] }],
       stream: false,
-      options: { temperature: 0.8, top_p: 0.9, num_predict: 200 },
+      options: { temperature: 0.8, top_p: 0.9, num_predict: 1500 },
     }),
   });
   if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
   const json = await res.json();
-  return (json.message?.content || "").trim();
+  // Qwen3-VL uses "thinking" mode — actual content may be in message.thinking
+  // The model thinks first, then writes the answer in content.
+  // If content is empty, extract the answer from thinking output.
+  let text = (json.message?.content || "").trim();
+  if (!text && json.message?.thinking) {
+    // Extract the actual description from thinking — it's usually the last
+    // coherent paragraph after the reasoning
+    const thinking = json.message.thinking as string;
+    // Remove <think> tags if present
+    const cleaned = thinking.replace(/<think>|<\/think>/g, "").trim();
+    // Take the last substantial line (the model usually ends with the answer)
+    const lines = cleaned.split("\n").map((l: string) => l.trim()).filter((l: string) => l.length > 20);
+    text = lines.length > 0 ? lines[lines.length - 1] : cleaned.substring(cleaned.length - 300);
+  }
+  // Strip any remaining think tags or quotes
+  text = text.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/^["']|["']$/g, "").trim();
+  return text;
 }
 
 function buildPrompt(
