@@ -107,8 +107,8 @@ interface StreetViewMeta {
   date?: string;
 }
 
-async function checkStreetViewCoverage(lat: number, lng: number): Promise<StreetViewMeta | null> {
-  const url = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${lat},${lng}&source=outdoor&key=${GOOGLE_API_KEY}`;
+async function checkStreetViewCoverage(address: string): Promise<StreetViewMeta | null> {
+  const url = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${encodeURIComponent(address)}&source=outdoor&key=${GOOGLE_API_KEY}`;
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
@@ -119,11 +119,16 @@ async function checkStreetViewCoverage(lat: number, lng: number): Promise<Street
   }
 }
 
-function streetViewImageUrl(lat: number, lng: number): string {
-  return `https://maps.googleapis.com/maps/api/streetview?location=${lat},${lng}&size=640x640&fov=110&pitch=10&source=outdoor&key=${GOOGLE_API_KEY}`;
+function streetViewImageUrl(address: string): string {
+  return `https://maps.googleapis.com/maps/api/streetview?location=${encodeURIComponent(address)}&size=640x640&fov=110&pitch=10&source=outdoor&key=${GOOGLE_API_KEY}`;
 }
 
-async function downloadStreetView(counties: { fips: string; latitude: number; longitude: number }[]): Promise<{ downloaded: number; checked: number }> {
+function buildCourthouseAddress(countyName: string, stateName: string): string {
+  // "County Courthouse, Autauga County, Alabama"
+  return `County Courthouse, ${countyName}, ${stateName}`;
+}
+
+async function downloadStreetView(counties: { fips: string; name: string; state_name: string; latitude: number; longitude: number }[]): Promise<{ downloaded: number; checked: number }> {
   if (!GOOGLE_API_KEY) {
     console.log("Street View: skipped (no Google API key)");
     return { downloaded: 0, checked: 0 };
@@ -136,18 +141,20 @@ async function downloadStreetView(counties: { fips: string; latitude: number; lo
       .filter(f => f.endsWith(".jpg") || f.endsWith(".png"))
       .map(f => f.replace(/\.(jpg|png)$/, ""))
   );
-  const todo = counties.filter(c => !existing.has(c.fips) && c.latitude && c.longitude);
+  const todo = counties.filter(c => !existing.has(c.fips));
 
   console.log(`Street View: ${existing.size} existing, ${todo.length} to check`);
+  console.log(`  Using courthouse addresses for better coverage`);
   let checked = 0;
   let downloaded = 0;
   let noCoverage = 0;
 
   for (let i = 0; i < todo.length; i++) {
     const c = todo[i];
+    const address = buildCourthouseAddress(c.name, c.state_name);
 
     // Step 1: Free metadata check
-    const meta = await checkStreetViewCoverage(c.latitude, c.longitude);
+    const meta = await checkStreetViewCoverage(address);
     checked++;
 
     if (!meta) {
@@ -160,9 +167,7 @@ async function downloadStreetView(counties: { fips: string; latitude: number; lo
     }
 
     // Step 2: Download the image (uses quota)
-    const imgLat = meta.location?.lat || c.latitude;
-    const imgLng = meta.location?.lng || c.longitude;
-    const url = streetViewImageUrl(imgLat, imgLng);
+    const url = streetViewImageUrl(address);
     const outPath = join(SV_DIR, `${c.fips}.jpg`);
 
     try {
