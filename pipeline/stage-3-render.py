@@ -24,12 +24,8 @@ from pathlib import Path
 
 COMFYUI_URL = "http://127.0.0.1:8188"
 
-# Model files
+# Model files — JuggernautXL Ragnarok v13 alone, no LoRAs
 CHECKPOINT = "juggernautXL_ragnarokBy.safetensors"
-LORA_STYLE = "ClassipeintXL2.1.safetensors"
-LORA_STYLE_WEIGHT = 0.5
-LORA_SPEED = "Hyper-SDXL-8steps-CFG-lora.safetensors"
-LORA_SPEED_WEIGHT = 0.6
 
 # Generation settings
 WIDTH = 1152
@@ -37,13 +33,13 @@ HEIGHT = 896
 SAMPLER = "dpmpp_2m_sde"
 SCHEDULER = "karras"
 
-# Rarity tiers: steps, cfg, polish_passes, denoise_values
+# Rarity tiers: more steps + higher CFG = more detail/drama
 RARITY_TIERS = {
-    "common":    {"steps": 8,  "cfg": 5.0, "polish": []},
-    "uncommon":  {"steps": 8,  "cfg": 5.0, "polish": []},
-    "rare":      {"steps": 12, "cfg": 6.0, "polish": [0.35]},
-    "epic":      {"steps": 16, "cfg": 7.0, "polish": [0.30]},
-    "legendary": {"steps": 16, "cfg": 8.0, "polish": [0.30, 0.20]},
+    "common":    {"steps": 20, "cfg": 6.0, "polish": []},
+    "uncommon":  {"steps": 25, "cfg": 7.0, "polish": []},
+    "rare":      {"steps": 25, "cfg": 7.0, "polish": [0.35]},
+    "epic":      {"steps": 30, "cfg": 7.5, "polish": [0.30]},
+    "legendary": {"steps": 30, "cfg": 8.0, "polish": [0.30, 0.20]},
 }
 
 # Paths
@@ -116,32 +112,22 @@ RARITY_MOODS = {
 
 NEGATIVE_PROMPT = (
     "text, words, letters, watermark, signature, people, faces, "
-    "blurry, low quality, oversaturated, cartoon, anime"
+    "blurry, low quality, oversaturated, cartoon, anime, "
+    "painting, brushstrokes, sketch, drawing, illustration"
 )
 
 
 def build_prompt(description, state_abbr, rarity):
-    palette = REGION_MAP.get(state_abbr, "natural light, atmospheric perspective")
     mood = RARITY_MOODS.get(rarity, RARITY_MOODS["common"])
-    return f"{palette}, {mood}, {description}, landscape painting, no text, no people, no signs, masterpiece quality"
+    return f"{description}, {mood}, beautiful landscape, cinematic lighting, detailed, 8k, masterpiece"
 
 
 def build_workflow(prompt, negative, seed, steps, cfg, denoise=1.0, input_image=None):
-    """Build ComfyUI API workflow with dual LoRAs."""
+    """Build ComfyUI API workflow — pure JuggernautXL, no LoRAs."""
     nodes = {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": CHECKPOINT}},
-        # LoRA 1: Style (ClassipeintXL)
-        "2": {"class_type": "LoraLoader", "inputs": {
-            "model": ["1", 0], "clip": ["1", 1],
-            "lora_name": LORA_STYLE, "strength_model": LORA_STYLE_WEIGHT, "strength_clip": LORA_STYLE_WEIGHT,
-        }},
-        # LoRA 2: Speed (Hyper-SDXL-CFG)
-        "3": {"class_type": "LoraLoader", "inputs": {
-            "model": ["2", 0], "clip": ["2", 1],
-            "lora_name": LORA_SPEED, "strength_model": LORA_SPEED_WEIGHT, "strength_clip": LORA_SPEED_WEIGHT,
-        }},
-        "4": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["3", 1]}},
-        "5": {"class_type": "CLIPTextEncode", "inputs": {"text": negative, "clip": ["3", 1]}},
+        "4": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
+        "5": {"class_type": "CLIPTextEncode", "inputs": {"text": negative, "clip": ["1", 1]}},
     }
 
     if input_image:
@@ -159,7 +145,7 @@ def build_workflow(prompt, negative, seed, steps, cfg, denoise=1.0, input_image=
         latent_out = ["6", 0]
 
     nodes["9"] = {"class_type": "KSampler", "inputs": {
-        "model": ["3", 0], "positive": ["4", 0], "negative": ["5", 0],
+        "model": ["1", 0], "positive": ["4", 0], "negative": ["5", 0],
         "latent_image": latent_out, "seed": seed,
         "steps": steps, "cfg": cfg, "sampler_name": SAMPLER,
         "scheduler": SCHEDULER, "denoise": denoise,
@@ -301,12 +287,6 @@ def preflight():
     if not ckpt_path.exists():
         errors.append(f"Checkpoint not found: {ckpt_path}")
 
-    # LoRAs
-    for lora in [LORA_STYLE, LORA_SPEED]:
-        lora_path = COMFYUI_LORAS_DIR / lora
-        if not lora_path.exists():
-            errors.append(f"LoRA not found: {lora_path}")
-
     if errors:
         for e in errors:
             print(f"[FAIL] {e}")
@@ -315,8 +295,6 @@ def preflight():
     print("[OK] ComfyUI running")
     print(f"[OK] {DESCRIPTIONS_FILE} found")
     print(f"[OK] Checkpoint {CHECKPOINT} found")
-    print(f"[OK] LoRA {LORA_STYLE} found")
-    print(f"[OK] LoRA {LORA_SPEED} found")
     return True
 
 
