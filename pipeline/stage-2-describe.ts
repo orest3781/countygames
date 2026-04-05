@@ -49,19 +49,19 @@ function buildPrompt(
   const mood = RARITY_MOODS[county.rarity] || RARITY_MOODS.common;
 
   const wikiSection = wikiExtract
-    ? `\nGEOGRAPHIC DESCRIPTION (from Wikipedia): "${wikiExtract.substring(0, 500)}"\n`
+    ? `\nFACTS ABOUT THIS PLACE: ${wikiExtract.substring(0, 400)}\n`
     : "";
 
-  return `You are looking at a satellite photo of a county in the ${region.name} region of the United States.
+  return `Look at this satellite photo carefully. Describe EXACTLY what you see — the specific landforms, water features, vegetation patterns, and terrain.
 ${wikiSection}
-County: population ${county.display_population}, area ${county.display_area}.
+This will become a painting prompt. Write a vivid 40-60 word scene description that:
+- Names the SPECIFIC landscape features visible (e.g., "a wide brown river bends through dense pine forest" not "varied terrain with waterways")
+- Picks ONE time of day and commits to it
+- Uses ${mood} mood
+- Is UNIQUE to this exact location — avoid generic phrases like "patchwork fields" or "rolling landscape"
 
-Write a 40-60 word landscape scene description for a ${county.rarity} painting.
-Region palette: ${region.palette}
-Rarity mood: ${mood}
-Include: specific terrain visible in the satellite image, time of day, lighting, atmosphere.
-Never include: county name, state name, text, signs, people.
-Write ONLY the scene description:`;
+NEVER mention: county names, state names, the word "satellite", or the word "image".
+Write ONLY the scene description, nothing else:`;
 }
 
 function cleanDescription(raw: string, countyName: string, stateName: string): string | null {
