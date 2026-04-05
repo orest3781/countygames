@@ -167,6 +167,7 @@ async function main() {
 
   let generated = 0;
   let failed = 0;
+  const errors: string[] = [];
   const t0 = Date.now();
   const enrichSaver = createBatchedSaver(ENRICHMENT_FILE, 10);
 
@@ -182,7 +183,11 @@ async function main() {
       const rawFlavor = await queryLLM(flavorPrompt);
       const flavor = cleanFlavor(rawFlavor);
 
-      if (!flavor) { failed++; continue; }
+      if (!flavor) {
+        failed++;
+        errors.push(`${county.fips} ${county.name}: flavor text too short`);
+        continue;
+      }
 
       // Extract notable person from Wikipedia (no LLM)
       const { name: personName, desc: personDesc } = extractNotablePerson(wiki[county.fips] || null);
@@ -205,7 +210,9 @@ async function main() {
       }
     } catch (err: any) {
       failed++;
-      if (failed <= 10) console.log(`  [error] ${county.fips}: ${err.message}`);
+      const msg = `${county.fips} ${county.name}: ${err.message}`;
+      errors.push(msg);
+      if (failed <= 10) console.log(`  [error] ${msg}`);
     }
   }
 
@@ -222,6 +229,7 @@ async function main() {
     complete: failRate < 0.05,
     enriched: Object.keys(enrichment).length,
     failed,
+    errors: errors.slice(-20),
     timestamp: new Date().toISOString(),
   };
   saveStatus(status);

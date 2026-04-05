@@ -208,13 +208,18 @@ async function main() {
 
   let generated = 0;
   let failed = 0;
+  const errors: string[] = [];
   const t0 = Date.now();
   const descSaver = createBatchedSaver(DESCRIPTIONS_FILE, 10);
 
   for (let i = 0; i < counties.length; i++) {
     const county = counties[i];
     const satPath = join(SAT_DIR, county.fips + ".jpg");
-    if (!existsSync(satPath)) { failed++; continue; }
+    if (!existsSync(satPath)) {
+      failed++;
+      errors.push(`${county.fips}: no satellite tile`);
+      continue;
+    }
 
     try {
       const imageBase64 = readFileSync(satPath).toString("base64");
@@ -223,7 +228,11 @@ async function main() {
       const raw = await queryVision(imageBase64, prompt);
       const desc = cleanDescription(raw, county.name, county.state_name);
 
-      if (!desc) { failed++; continue; }
+      if (!desc) {
+        failed++;
+        errors.push(`${county.fips} ${county.name}: description too short`);
+        continue;
+      }
 
       descriptions[county.fips] = desc;
       generated++;
@@ -239,7 +248,9 @@ async function main() {
       }
     } catch (err: any) {
       failed++;
-      if (failed <= 10) console.log(`  [error] ${county.fips}: ${err.message}`);
+      const msg = `${county.fips} ${county.name}: ${err.message}`;
+      errors.push(msg);
+      if (failed <= 10) console.log(`  [error] ${msg}`);
     }
   }
 
@@ -256,6 +267,7 @@ async function main() {
     complete: failRate < 0.05,
     descriptions: Object.keys(descriptions).length,
     failed,
+    errors: errors.slice(-20),
     timestamp: new Date().toISOString(),
   };
   saveStatus(status);

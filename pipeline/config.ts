@@ -236,6 +236,7 @@ export const RARITY_MOODS: Record<string, string> = {
 export interface StageStatus {
   complete: boolean;
   timestamp: string;
+  errors?: string[];
   [key: string]: unknown;
 }
 

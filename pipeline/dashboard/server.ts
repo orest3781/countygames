@@ -173,243 +173,373 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>County Wars Pipeline v2</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: #0a0e17;
-      color: #e2e8f0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
       min-height: 100vh;
+      line-height: 1.5;
     }
 
-    .container { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+    /* Header gradient area */
+    .header-bg {
+      background: linear-gradient(180deg, #0f1623 0%, #0a0e17 100%);
+      border-bottom: 1px solid #1f2937;
+      padding: 24px 0 0;
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    .main-content { padding: 24px 0 48px; }
 
     /* Header */
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 28px;
+      padding-bottom: 20px;
     }
     .header h1 {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 800;
       color: #fff;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.03em;
     }
-    .header-meta {
-      font-size: 12px;
-      color: #475569;
+    .header h1 span { color: #3b82f6; }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    .header-meta .live-dot {
-      display: inline-block;
-      width: 7px;
-      height: 7px;
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
       border-radius: 50%;
       background: #10b981;
-      margin-right: 5px;
-      animation: pulse 2s infinite;
+      animation: pulse 2s ease-in-out infinite;
     }
 
-    /* Stage progress bar */
-    .stage-bar {
+    /* ── Pipeline Stage Tracker ── */
+    .pipeline-tracker {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 0;
       margin-bottom: 28px;
-      background: #1a1f2e;
-      border-radius: 12px;
-      padding: 16px 20px;
+      padding: 20px;
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 14px;
     }
-    .stage-item {
+    .stage-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      min-width: 0;
+    }
+    .stage-card-top {
       display: flex;
       align-items: center;
-      gap: 10px;
-      flex: 1;
+      width: 100%;
+      justify-content: center;
       position: relative;
     }
-    .stage-item:not(:last-child)::after {
-      content: '';
+    .stage-line-before, .stage-line-after {
       flex: 1;
       height: 2px;
-      background: #2d3548;
-      margin: 0 12px;
+      background: #1f2937;
     }
-    .stage-item:not(:last-child)::after {
-      order: 3;
-    }
-    .stage-circle {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
+    .stage-line-before.done, .stage-line-after.done { background: #10b981; }
+    .stage-card:first-child .stage-line-before { visibility: hidden; }
+    .stage-card:last-child .stage-line-after { visibility: hidden; }
+
+    .stage-icon {
+      width: 40px; height: 40px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 15px;
+      font-weight: 800;
       flex-shrink: 0;
-      border: 2px solid #2d3548;
+      border: 2px solid #1f2937;
       background: #0a0e17;
-      color: #475569;
-      transition: all 0.3s;
+      color: #64748b;
+      transition: all 0.3s ease;
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
     }
-    .stage-circle.not-started {
-      border-color: #2d3548;
-      background: #0a0e17;
-      color: #475569;
+    .stage-icon.not-started { border-color: #1f2937; background: #0a0e17; color: #64748b; }
+    .stage-icon.in-progress {
+      border-color: #3b82f6; background: rgba(59, 130, 246, 0.15); color: #3b82f6;
+      animation: pulseBlue 2s ease-in-out infinite;
     }
-    .stage-circle.in-progress {
-      border-color: #3b82f6;
-      background: #1e3a5f;
-      color: #3b82f6;
-      animation: pulseBlue 2s infinite;
+    .stage-icon.complete {
+      border-color: #10b981; background: rgba(16, 185, 129, 0.15); color: #10b981;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
     }
-    .stage-circle.complete {
-      border-color: #10b981;
-      background: #0f2918;
-      color: #10b981;
-    }
-    .stage-circle.stalled {
-      border-color: #f59e0b;
-      background: #3b2f0a;
-      color: #f59e0b;
-    }
-    .stage-info {
+    .stage-icon.stalled { border-color: #f59e0b; background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .stage-icon.failed { border-color: #ef4444; background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+    .stage-details {
+      margin-top: 10px;
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      min-width: 0;
+      align-items: center;
+      gap: 3px;
     }
-    .stage-label {
+    .stage-name {
       font-size: 12px;
-      font-weight: 600;
-      color: #e2e8f0;
+      font-weight: 700;
+      color: #f1f5f9;
       white-space: nowrap;
     }
     .stage-sub {
       font-size: 10px;
-      color: #475569;
+      color: #64748b;
       white-space: nowrap;
     }
-    .copy-btn {
-      background: none;
-      border: 1px solid #2d3548;
-      color: #64748b;
+    .stage-sub.failed-sub { color: #ef4444; }
+    .stage-fail-link {
       font-size: 10px;
-      padding: 2px 7px;
+      color: #ef4444;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      margin-top: 2px;
+      background: none;
+      border: none;
+      font-family: inherit;
+    }
+    .stage-fail-link:hover { color: #f87171; }
+    .copy-cmd {
+      background: none;
+      border: 1px solid #1f2937;
+      color: #64748b;
+      font-size: 9px;
+      padding: 2px 8px;
       border-radius: 4px;
       cursor: pointer;
       white-space: nowrap;
       transition: all 0.2s;
-      flex-shrink: 0;
+      margin-top: 6px;
+      font-family: inherit;
     }
-    .copy-btn:hover {
-      border-color: #3b82f6;
-      color: #3b82f6;
+    .copy-cmd:hover { border-color: #3b82f6; color: #3b82f6; }
+    .copy-cmd.copied { border-color: #10b981; color: #10b981; }
+
+    /* Stage error expansion panel */
+    .stage-errors-panel {
+      display: none;
+      margin-top: 8px;
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: left;
+      max-width: 260px;
+      max-height: 160px;
+      overflow-y: auto;
     }
-    .copy-btn.copied {
-      border-color: #10b981;
-      color: #10b981;
+    .stage-errors-panel.open { display: block; }
+    .stage-errors-panel .err-line {
+      font-size: 10px;
+      color: #f1f5f9;
+      padding: 2px 0;
+      border-bottom: 1px solid rgba(239, 68, 68, 0.1);
+      word-break: break-word;
     }
-    .stage-connector {
-      width: 32px;
-      height: 2px;
-      background: #2d3548;
-      flex-shrink: 0;
-    }
-    .stage-connector.done {
-      background: #10b981;
+    .stage-errors-panel .err-line:last-child { border-bottom: none; }
+    .stage-errors-panel .err-fips {
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+      color: #f87171;
+      font-weight: 600;
     }
 
-    /* Stats row */
+    /* ── Stat Cards ── */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
       margin-bottom: 28px;
     }
     .stat-card {
-      background: #1a1f2e;
-      border-radius: 10px;
-      padding: 16px;
-      text-align: center;
-      border: 1px solid #2d3548;
-      transition: border-color 0.3s;
+      background: #111827;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #1f2937;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      position: relative;
+      overflow: hidden;
     }
-    .stat-card:hover {
-      border-color: #3b82f6;
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-conic-gradient(#ffffff03 0% 25%, transparent 0% 50%) 0 0 / 4px 4px;
+      pointer-events: none;
+    }
+    .stat-card:hover { border-color: #374151; }
+    .stat-card.complete-glow {
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .stat-top {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      margin-bottom: 4px;
     }
     .stat-num {
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 800;
       font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
       font-variant-numeric: tabular-nums;
-      color: #3b82f6;
+      line-height: 1;
     }
     .stat-total {
-      font-size: 14px;
-      color: #475569;
+      font-size: 15px;
+      color: #64748b;
       font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
     }
     .stat-label {
       font-size: 11px;
-      color: #64748b;
-      margin-top: 4px;
+      color: #94a3b8;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+      margin-bottom: 10px;
     }
     .stat-bar {
       height: 4px;
-      background: #2d3548;
+      background: #1f2937;
       border-radius: 2px;
-      margin-top: 8px;
       overflow: hidden;
     }
     .stat-bar-fill {
       height: 100%;
       border-radius: 2px;
-      background: #3b82f6;
       transition: width 0.6s ease;
     }
 
-    /* Section titles */
-    .section-title {
-      font-size: 16px;
+    /* ── Error Panel ── */
+    .error-panel {
+      display: none;
+      margin-bottom: 28px;
+    }
+    .error-panel.visible { display: block; }
+    .error-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 10px 10px 0 0;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    .error-header:hover { background: rgba(239, 68, 68, 0.15); }
+    .error-header-title {
+      font-size: 13px;
       font-weight: 700;
-      color: #e2e8f0;
-      margin: 28px 0 14px;
+      color: #ef4444;
+    }
+    .error-header-toggle {
+      font-size: 12px;
+      color: #94a3b8;
+      transition: transform 0.2s;
+    }
+    .error-header-toggle.open { transform: rotate(180deg); }
+    .error-body {
+      display: none;
+      background: #111827;
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      padding: 0;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .error-body.open { display: block; }
+    .error-group {
+      padding: 12px 16px;
+      border-bottom: 1px solid #1f2937;
+    }
+    .error-group:last-child { border-bottom: none; }
+    .error-group-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #f59e0b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .error-line {
+      font-size: 11px;
+      color: #94a3b8;
+      padding: 3px 0;
+      line-height: 1.4;
+    }
+    .error-line .efips {
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+      color: #f87171;
+      font-weight: 600;
+      font-size: 10px;
     }
 
-    /* Art preview grid */
+    /* ── Section Titles ── */
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 0 0 14px;
+    }
+
+    /* ── Art Preview ── */
     .art-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
     }
     .art-thumb {
       position: relative;
       aspect-ratio: 1;
-      border-radius: 8px;
+      border-radius: 10px;
       overflow: hidden;
       cursor: pointer;
-      border: 1px solid #2d3548;
+      border: 2px solid #1f2937;
       transition: border-color 0.2s, transform 0.2s;
     }
     .art-thumb:hover {
       border-color: #3b82f6;
-      transform: scale(1.03);
+      transform: scale(1.04);
     }
     .art-thumb img {
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%;
       object-fit: cover;
+      display: block;
     }
     .art-thumb .art-fips {
       position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(transparent, rgba(0,0,0,0.8));
-      padding: 14px 6px 4px;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.85));
+      padding: 16px 8px 6px;
       font-size: 10px;
       font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
       color: #94a3b8;
@@ -419,27 +549,26 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     /* Empty state */
     .empty-state {
       text-align: center;
-      color: #475569;
+      color: #64748b;
       font-size: 13px;
-      padding: 32px;
-      background: #1a1f2e;
-      border-radius: 10px;
-      border: 1px dashed #2d3548;
+      padding: 40px;
+      background: #111827;
+      border-radius: 12px;
+      border: 1px dashed #1f2937;
     }
 
-    /* Modal */
+    /* ── Modal ── */
     .modal-overlay {
       display: none;
       position: fixed;
       inset: 0;
       z-index: 100;
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(0, 0, 0, 0.88);
       align-items: center;
       justify-content: center;
+      backdrop-filter: blur(4px);
     }
-    .modal-overlay.open {
-      display: flex;
-    }
+    .modal-overlay.open { display: flex; }
     .modal-content {
       position: relative;
       max-width: 90vw;
@@ -449,7 +578,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       max-width: 90vw;
       max-height: 85vh;
       border-radius: 12px;
-      border: 2px solid #2d3548;
+      border: 2px solid #1f2937;
     }
     .modal-fips {
       text-align: center;
@@ -460,68 +589,91 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     }
     .modal-close {
       position: absolute;
-      top: -12px;
-      right: -12px;
-      width: 32px;
-      height: 32px;
+      top: -14px; right: -14px;
+      width: 32px; height: 32px;
       border-radius: 50%;
-      background: #1a1f2e;
-      border: 1px solid #2d3548;
-      color: #e2e8f0;
+      background: #111827;
+      border: 1px solid #1f2937;
+      color: #f1f5f9;
       font-size: 16px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: all 0.2s;
     }
-    .modal-close:hover {
-      background: #ef4444;
-      border-color: #ef4444;
-    }
+    .modal-close:hover { background: #ef4444; border-color: #ef4444; }
 
-    /* Animations */
+    /* ── Animations ── */
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
+      50% { opacity: 0.3; }
     }
     @keyframes pulseBlue {
       0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
-      50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+      50% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
     }
 
-    /* Responsive */
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0e17; }
+    ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #374151; }
+
+    /* ── Responsive ── */
     @media (max-width: 768px) {
-      .stage-bar {
+      .pipeline-tracker {
         flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+      }
+      .stage-card {
+        flex-direction: row;
+        align-items: center;
+        text-align: left;
         gap: 12px;
-        align-items: flex-start;
+        padding: 8px 0;
       }
-      .stage-connector { display: none; }
-      .stage-item::after { display: none !important; }
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
+      .stage-card-top { width: auto; justify-content: flex-start; }
+      .stage-line-before, .stage-line-after { display: none; }
+      .stage-details { align-items: flex-start; margin-top: 0; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <h1>County Wars Pipeline v2</h1>
-      <div class="header-meta">
-        <span class="live-dot"></span>
-        Auto-refresh every 3s
+  <!-- Header gradient -->
+  <div class="header-bg">
+    <div class="container">
+      <div class="header">
+        <h1>County Wars <span>Pipeline v2</span></h1>
+        <div class="header-right">
+          <div class="live-badge">
+            <span class="live-dot"></span>
+            Live
+          </div>
+        </div>
       </div>
     </div>
+  </div>
 
-    <!-- Stage progress bar -->
-    <div class="stage-bar" id="stageBar"></div>
+  <div class="container main-content">
+    <!-- Pipeline Stage Tracker -->
+    <div class="pipeline-tracker" id="stageBar"></div>
 
-    <!-- Stats row -->
+    <!-- Stats Grid -->
     <div class="stats-grid" id="statsGrid"></div>
 
-    <!-- Art preview -->
+    <!-- Error Panel -->
+    <div class="error-panel" id="errorPanel">
+      <div class="error-header" id="errorHeader" onclick="toggleErrors()">
+        <div class="error-header-title" id="errorTitle">Errors</div>
+        <div class="error-header-toggle" id="errorToggle">&#9660;</div>
+      </div>
+      <div class="error-body" id="errorBody"></div>
+    </div>
+
+    <!-- Art Preview -->
     <div class="section-title" id="artTitle" style="display:none">Card Art Preview</div>
     <div class="art-grid" id="artGrid"></div>
     <div id="artEmpty"></div>
@@ -538,6 +690,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 
   <script>
     var TOTAL = ${TOTAL_COUNTIES};
+    var _lastStatus = {};
 
     var STAGES = [
       { num: 1, name: 'Reference',  cmd: 'npx tsx pipeline/stage-1-reference.ts' },
@@ -547,7 +700,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       { num: 5, name: 'Export',     cmd: 'npx tsx pipeline/stage-5-export.ts' },
     ];
 
-    // ── Helpers ──
+    /* ── Helpers ── */
 
     function esc(s) {
       var d = document.createElement('div');
@@ -559,27 +712,43 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       navigator.clipboard.writeText(cmd).then(function () {
         btn.textContent = 'Copied!';
         btn.classList.add('copied');
-        setTimeout(function () {
-          btn.textContent = 'Copy';
-          btn.classList.remove('copied');
-        }, 1500);
+        setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
       });
     }
 
-    // ── Stage bar rendering ──
+    function toggleStageErrors(num) {
+      var panel = document.getElementById('stage-errors-' + num);
+      if (panel) panel.classList.toggle('open');
+    }
+
+    /* ── Stage state detection ── */
 
     function getStageState(stageNum, status) {
       var key = 'stage' + stageNum;
       var info = status[key];
       if (!info) return 'not-started';
       if (info.complete) return 'complete';
-      // Detect stale "in-progress" — if timestamp is >10 min old, likely dead
+      // Check for stalled first
+      var isStalled = false;
       if (info.timestamp) {
         var age = Date.now() - new Date(info.timestamp).getTime();
-        if (age > 10 * 60 * 1000) return 'stalled';
+        if (age > 10 * 60 * 1000) isStalled = true;
       }
+      // Failed: not complete, has failures, and not stalled
+      if (!info.complete && info.failed > 0 && !isStalled) return 'failed';
+      if (isStalled) return 'stalled';
       return 'in-progress';
     }
+
+    function stateLabel(state) {
+      if (state === 'complete') return 'Complete';
+      if (state === 'in-progress') return 'Running...';
+      if (state === 'stalled') return 'Stalled';
+      if (state === 'failed') return 'Failed';
+      return 'Pending';
+    }
+
+    /* ── Stage bar rendering ── */
 
     function renderStageBar(status) {
       var bar = document.getElementById('stageBar');
@@ -587,48 +756,69 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       for (var i = 0; i < STAGES.length; i++) {
         var s = STAGES[i];
         var state = getStageState(s.num, status);
+        var info = status['stage' + s.num] || {};
+        var prevState = i > 0 ? getStageState(STAGES[i - 1].num, status) : 'not-started';
 
-        var circleContent = '';
-        if (state === 'complete') {
-          circleContent = '&#10003;';
-        } else {
-          circleContent = String(s.num);
+        var icon = '';
+        if (state === 'complete') icon = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        else if (state === 'failed') icon = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3L11 11M11 3L3 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+        else if (state === 'stalled') icon = '!';
+        else icon = String(s.num);
+
+        var lineDoneBefore = (state === 'complete' || state === 'failed' || state === 'in-progress' || state === 'stalled') ? ' done' : '';
+        var lineDoneAfter = (state === 'complete') ? ' done' : '';
+
+        html += '<div class="stage-card">';
+        html += '<div class="stage-card-top">';
+        html += '<div class="stage-line-before' + lineDoneBefore + '"></div>';
+        html += '<div class="stage-icon ' + state + '">' + icon + '</div>';
+        html += '<div class="stage-line-after' + lineDoneAfter + '"></div>';
+        html += '</div>';
+        html += '<div class="stage-details">';
+        html += '<div class="stage-name">' + esc(s.name) + '</div>';
+        html += '<div class="stage-sub' + (state === 'failed' ? ' failed-sub' : '') + '">' + stateLabel(state) + '</div>';
+
+        if (state === 'failed' && info.failed > 0) {
+          html += '<button class="stage-fail-link" onclick="toggleStageErrors(' + s.num + ')">' + info.failed + ' failure' + (info.failed === 1 ? '' : 's') + '</button>';
         }
 
-        html += '<div class="stage-item">';
-        html += '<div class="stage-circle ' + state + '">' + circleContent + '</div>';
-        html += '<div class="stage-info">';
-        html += '<div class="stage-label">Stage ' + s.num + ': ' + esc(s.name) + '</div>';
-        html += '<div class="stage-sub">' + stateLabel(state) + '</div>';
-        html += '</div>';
-        html += '<button class="copy-btn" onclick="copyCmd(this, \\'' + esc(s.cmd).replace(/'/g, "\\\\'") + '\\')">Copy</button>';
+        html += '<button class="copy-cmd" onclick="copyCmd(this, \\'' + esc(s.cmd).replace(/'/g, "\\\\'") + '\\')">Copy</button>';
         html += '</div>';
 
-        if (i < STAGES.length - 1) {
-          var connDone = state === 'complete' ? ' done' : '';
-          html += '<div class="stage-connector' + connDone + '"></div>';
+        // Error expansion panel
+        if (info.errors && info.errors.length > 0) {
+          html += '<div class="stage-errors-panel" id="stage-errors-' + s.num + '">';
+          for (var e = 0; e < info.errors.length; e++) {
+            var errMsg = info.errors[e];
+            var fipsPart = '';
+            var restPart = errMsg;
+            var colonIdx = errMsg.indexOf(':');
+            if (colonIdx > 0 && colonIdx < 12) {
+              fipsPart = errMsg.substring(0, colonIdx);
+              restPart = errMsg.substring(colonIdx);
+            }
+            html += '<div class="err-line">';
+            if (fipsPart) html += '<span class="err-fips">' + esc(fipsPart) + '</span>';
+            html += esc(restPart) + '</div>';
+          }
+          html += '</div>';
         }
+
+        html += '</div>';
       }
       bar.innerHTML = html;
     }
 
-    function stateLabel(state) {
-      if (state === 'complete') return 'Complete';
-      if (state === 'in-progress') return 'In progress...';
-      if (state === 'stalled') return 'Stalled?';
-      return 'Not started';
-    }
-
-    // ── Stats rendering ──
+    /* ── Stats rendering ── */
 
     function renderStats(stats) {
       var items = [
-        { key: 'satelliteTiles',    label: 'Satellite Tiles',     color: '#06b6d4' },
-        { key: 'wikiDescriptions',  label: 'Wiki Descriptions',   color: '#8b5cf6' },
-        { key: 'sceneDescriptions', label: 'Scene Descriptions',  color: '#f59e0b' },
-        { key: 'cardArt',           label: 'Card Art',            color: '#3b82f6' },
-        { key: 'flavorText',        label: 'Flavor Text',         color: '#10b981' },
-        { key: 'notablePeople',     label: 'Notable People',      color: '#f43f5e' },
+        { key: 'satelliteTiles',    label: 'Satellite Tiles',    color: '#06b6d4' },
+        { key: 'wikiDescriptions',  label: 'Wiki Descriptions',  color: '#8b5cf6' },
+        { key: 'sceneDescriptions', label: 'Scene Descriptions', color: '#f59e0b' },
+        { key: 'cardArt',           label: 'Card Art',           color: '#3b82f6' },
+        { key: 'flavorText',        label: 'Flavor Text',        color: '#10b981' },
+        { key: 'notablePeople',     label: 'Notable People',     color: '#f43f5e' },
       ];
 
       var grid = document.getElementById('statsGrid');
@@ -637,17 +827,81 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         var item = items[i];
         var val = stats[item.key] || 0;
         var pct = Math.min(100, (val / TOTAL) * 100);
-        html += '<div class="stat-card">';
+        var isComplete = pct >= 100;
+
+        html += '<div class="stat-card' + (isComplete ? ' complete-glow' : '') + '">';
+        html += '<div class="stat-label">' + esc(item.label) + '</div>';
+        html += '<div class="stat-top">';
         html += '<div class="stat-num" style="color:' + item.color + '">' + val.toLocaleString() + '</div>';
         html += '<div class="stat-total">/ ' + TOTAL.toLocaleString() + '</div>';
-        html += '<div class="stat-label">' + esc(item.label) + '</div>';
+        html += '</div>';
         html += '<div class="stat-bar"><div class="stat-bar-fill" style="width:' + pct.toFixed(1) + '%;background:' + item.color + '"></div></div>';
         html += '</div>';
       }
       grid.innerHTML = html;
     }
 
-    // ── Art preview rendering ──
+    /* ── Error Panel ── */
+
+    var _errorsOpen = false;
+
+    function toggleErrors() {
+      _errorsOpen = !_errorsOpen;
+      document.getElementById('errorBody').classList.toggle('open', _errorsOpen);
+      document.getElementById('errorToggle').classList.toggle('open', _errorsOpen);
+    }
+
+    function renderErrors(status) {
+      var panel = document.getElementById('errorPanel');
+      var body = document.getElementById('errorBody');
+      var title = document.getElementById('errorTitle');
+
+      var stageNames = { 1: 'Stage 1: Reference', 2: 'Stage 2: Describe', 3: 'Stage 3: Render', 4: 'Stage 4: Enrich', 5: 'Stage 5: Export' };
+      var totalErrors = 0;
+      var groups = [];
+
+      for (var n = 1; n <= 5; n++) {
+        var info = status['stage' + n];
+        if (info && info.errors && info.errors.length > 0) {
+          totalErrors += info.errors.length;
+          groups.push({ stage: stageNames[n], errors: info.errors });
+        }
+      }
+
+      if (totalErrors === 0) {
+        panel.classList.remove('visible');
+        return;
+      }
+
+      panel.classList.add('visible');
+      title.textContent = 'Errors (' + totalErrors + ')';
+
+      var html = '';
+      for (var g = 0; g < groups.length; g++) {
+        var group = groups[g];
+        html += '<div class="error-group">';
+        html += '<div class="error-group-title">' + esc(group.stage) + '</div>';
+        for (var e = 0; e < group.errors.length; e++) {
+          var errMsg = group.errors[e];
+          var fipsPart = '';
+          var restPart = errMsg;
+          var spaceIdx = errMsg.indexOf(' ');
+          var colonIdx = errMsg.indexOf(':');
+          // Try to extract leading FIPS code
+          if (colonIdx > 0 && colonIdx < 12) {
+            fipsPart = errMsg.substring(0, colonIdx);
+            restPart = errMsg.substring(colonIdx);
+          }
+          html += '<div class="error-line">';
+          if (fipsPart) html += '<span class="efips">' + esc(fipsPart) + '</span>';
+          html += esc(restPart) + '</div>';
+        }
+        html += '</div>';
+      }
+      body.innerHTML = html;
+    }
+
+    /* ── Art preview rendering ── */
 
     function renderArtPreview(artFiles) {
       var titleEl = document.getElementById('artTitle');
@@ -657,7 +911,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       if (!artFiles || artFiles.length === 0) {
         titleEl.style.display = 'none';
         gridEl.innerHTML = '';
-        emptyEl.innerHTML = '<div class="empty-state">No card art generated yet. Run Stage 3 to generate card art.</div>';
+        emptyEl.innerHTML = '<div class="empty-state">No art yet. Run Stage 3 to generate card art.</div>';
         return;
       }
 
@@ -675,15 +929,12 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       gridEl.innerHTML = html;
     }
 
-    // ── Modal ──
+    /* ── Modal ── */
 
     function openModal(fips) {
-      var modal = document.getElementById('modal');
-      var img = document.getElementById('modalImg');
-      var fipsLabel = document.getElementById('modalFips');
-      img.src = '/api/art/' + encodeURIComponent(fips);
-      fipsLabel.textContent = 'FIPS: ' + fips;
-      modal.classList.add('open');
+      document.getElementById('modalImg').src = '/api/art/' + encodeURIComponent(fips);
+      document.getElementById('modalFips').textContent = 'FIPS: ' + fips;
+      document.getElementById('modal').classList.add('open');
     }
 
     function closeModal(event) {
@@ -692,12 +943,10 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') {
-        document.getElementById('modal').classList.remove('open');
-      }
+      if (e.key === 'Escape') document.getElementById('modal').classList.remove('open');
     });
 
-    // ── Polling ──
+    /* ── Polling ── */
 
     async function poll() {
       try {
@@ -710,8 +959,10 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         var status = await statusRes.json();
         var artFiles = await artRes.json();
 
+        _lastStatus = status;
         renderStageBar(status);
         renderStats(stats);
+        renderErrors(status);
         renderArtPreview(artFiles);
       } catch (e) {
         console.error('Poll failed:', e);
