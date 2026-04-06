@@ -35,9 +35,10 @@ import { join } from "path";
 const TEXT_MODEL = "qwen3:14b";
 const WIKI_FILE = "data/wiki.json";
 const ENRICHMENT_FILE = "data/enrichment.json";
+// USDA typology is optional — stat-based derivation works as fallback
 const USDA_CSV_URL =
   "https://www.ers.usda.gov/webdocs/DataFiles/48652/2015CountyTypologyCodes.csv";
-const USDA_CSV_FILE = "usda-county-typology-2015.csv";
+const USDA_CSV_FILE = "usda-county-typology.csv";
 
 // ─── Types ───
 
