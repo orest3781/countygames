@@ -23,8 +23,6 @@ import {
   createBatchedSaver,
   OLLAMA_URL,
   unloadOllamaModels,
-  downloadAndCache,
-  parseCSV,
   STATE_FIPS,
 } from "./config.js";
 import { existsSync } from "fs";
@@ -35,10 +33,7 @@ import { join } from "path";
 const TEXT_MODEL = "qwen3:14b";
 const WIKI_FILE = "data/wiki.json";
 const ENRICHMENT_FILE = "data/enrichment.json";
-// USDA typology is optional — stat-based derivation works as fallback
-const USDA_CSV_URL =
-  "https://www.ers.usda.gov/webdocs/DataFiles/48652/2015CountyTypologyCodes.csv";
-const USDA_CSV_FILE = "usda-county-typology.csv";
+// USDA typology loaded from raw_usda_typology table (run 05-usda-typology.ts first)
 
 // ─── Types ───
 
@@ -275,24 +270,29 @@ async function loadUsdaTypology(): Promise<Record<string, number>> {
   const fipsToType: Record<string, number> = {};
 
   try {
-    const csvText = await downloadAndCache(USDA_CSV_URL, USDA_CSV_FILE);
-    const rows = parseCSV(csvText);
-
-    for (const row of rows) {
-      // The CSV has FIPStxt (or FIPS) and EconomicTypology2015 columns
-      const fips = (row.FIPStxt || row.FIPS || "").padStart(5, "0");
-      const econType = parseInt(
-        row.EconomicTypology2015 || row.Economic_Type_2015 || "0",
-        10
-      );
-      if (fips.length === 5 && econType >= 1 && econType <= 6) {
-        fipsToType[fips] = econType;
+    let offset = 0;
+    while (true) {
+      const { data } = await supabase
+        .from("raw_usda_typology")
+        .select("fips, farming, mining, manufacturing, government, recreation, nonspecialized")
+        .range(offset, offset + 999);
+      if (!data || data.length === 0) break;
+      for (const row of data) {
+        const fips = (row.fips || "").trim();
+        // Map boolean flags to type codes: 1=farming, 2=mining, 3=manufacturing, 4=government, 5=recreation, 6=nonspecialized
+        if (row.farming) fipsToType[fips] = 1;
+        else if (row.mining) fipsToType[fips] = 2;
+        else if (row.manufacturing) fipsToType[fips] = 3;
+        else if (row.government) fipsToType[fips] = 4;
+        else if (row.recreation) fipsToType[fips] = 5;
+        else fipsToType[fips] = 6; // nonspecialized
       }
+      if (data.length < 1000) break;
+      offset += 1000;
     }
-
-    console.log(`  USDA typology loaded: ${Object.keys(fipsToType).length} counties`);
+    console.log(`  USDA typology loaded: ${Object.keys(fipsToType).length} counties from Supabase`);
   } catch (err: any) {
-    console.warn(`  [warn] USDA typology download failed: ${err.message}`);
+    console.warn(`  [warn] USDA typology load failed: ${err.message}`);
     console.warn("  Falling back to stat-based type derivation for all counties.");
   }
 
