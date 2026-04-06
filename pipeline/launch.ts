@@ -266,7 +266,7 @@ async function main() {
   }
 
   // 6. Start dashboard in background (kill any existing instance first)
-  console.log("\n  Starting dashboard at http://localhost:9444 ...");
+  console.log("\n  Starting dashboard at http://localhost:9555 ...");
   const pidFile = join(process.cwd(), "data", ".dashboard-pid");
   // Kill previous dashboard if running
   if (existsSync(pidFile)) {
@@ -276,7 +276,7 @@ async function main() {
     } catch { /* ignore if already dead */ }
   }
   // Check if dashboard is already running
-  let dashboardReady = await isReachable("http://localhost:9444");
+  let dashboardReady = await isReachable("http://localhost:9555");
   if (!dashboardReady) {
     const dashboard = spawn("npx", ["tsx", "pipeline/dashboard/server.ts"], {
       detached: true,
@@ -291,14 +291,14 @@ async function main() {
     // Wait up to 10s for dashboard to start
     for (let i = 0; i < 10; i++) {
       await new Promise(r => setTimeout(r, 1000));
-      if (await isReachable("http://localhost:9444")) {
+      if (await isReachable("http://localhost:9555")) {
         dashboardReady = true;
         break;
       }
     }
   }
   if (dashboardReady) {
-    console.log("  Dashboard ready at http://localhost:9444");
+    console.log("  Dashboard ready at http://localhost:9555");
   } else {
     console.log("  Dashboard failed to start (pipeline will continue without it)");
   }
