@@ -20,7 +20,7 @@ import { join } from "path";
 
 const OLLAMA_URL = "http://127.0.0.1:11434";
 const COMFYUI_URL = "http://127.0.0.1:8188";
-const COMFYUI_DIR = "A:/ComfyUI_Fresh";
+const COMFYUI_DIR = process.env.COMFYUI_DIR || "A:/ComfyUI_Fresh";
 const CHECKPOINT_DIR = join(COMFYUI_DIR, "models", "checkpoints");
 
 const REQUIRED_OLLAMA_MODELS = ["gemma4:e4b", "qwen3:14b"];

@@ -314,19 +314,20 @@ async function main() {
   const wikiCount = await downloadWikiDescriptions(counties);
   console.log();
 
-  // Update status
+  // Update status — use actual file counts, not just incremental downloads
+  const svTotal = existsSync(SV_DIR) ? readdirSync(SV_DIR).filter(f => f.endsWith(".jpg") || f.endsWith(".png")).length : 0;
   const status = loadStatus();
   status.stage1 = {
     complete: true,
     satellites: satCount,
-    streetview: sv.downloaded,
+    streetview: svTotal,
     wiki: wikiCount,
     timestamp: new Date().toISOString(),
   };
   saveStatus(status);
 
   console.log("=== Stage 1 Complete ===");
-  console.log(`  Satellites: ${satCount} | Street View: ${sv.downloaded} | Wiki: ${wikiCount}`);
+  console.log(`  Satellites: ${satCount} | Street View: ${svTotal} | Wiki: ${wikiCount}`);
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

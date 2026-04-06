@@ -8,7 +8,7 @@
  * Usage: npx tsx pipeline/stage-2-describe.ts
  */
 
-import { supabase, loadStatus, saveStatus, loadJson, saveJson, createBatchedSaver, REGION_MAP, RARITY_MOODS, OLLAMA_URL, unloadOllamaModels } from "./config.js";
+import { supabase, loadStatus, saveStatus, loadJson, saveJson, createBatchedSaver, exportPipelineConfig, REGION_MAP, RARITY_MOODS, OLLAMA_URL, unloadOllamaModels } from "./config.js";
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
 
@@ -166,6 +166,9 @@ async function main() {
   console.log(`Vision Model: ${VISION_MODEL}`);
   console.log(`Satellite Dir: ${SAT_DIR}`);
   console.log(`Output: ${DESCRIPTIONS_FILE}\n`);
+
+  // Export shared config for Python stage-3
+  exportPipelineConfig();
 
   // Dependency checks
   if (!existsSync(SAT_DIR) || readdirSync(SAT_DIR).filter(f => f.endsWith(".jpg") || f.endsWith(".png")).length === 0) {

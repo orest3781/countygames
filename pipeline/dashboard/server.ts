@@ -57,6 +57,10 @@ function getStats(): Record<string, number> {
   const satelliteTiles = countFilesInDir(join(DATA_DIR, "satellite"), ".png")
     + countFilesInDir(join(DATA_DIR, "satellite"), ".jpg");
 
+  // Street View: count files in data/streetview/
+  const streetView = countFilesInDir(join(DATA_DIR, "streetview"), ".jpg")
+    + countFilesInDir(join(DATA_DIR, "streetview"), ".png");
+
   // Wiki Descriptions: count keys in data/wiki.json
   const wikiDescriptions = countJsonKeys(join(DATA_DIR, "wiki.json"));
 
@@ -85,6 +89,7 @@ function getStats(): Record<string, number> {
 
   return {
     satelliteTiles,
+    streetView,
     wikiDescriptions,
     sceneDescriptions,
     cardArt,
@@ -1171,6 +1176,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     function renderStats(stats) {
       var items = [
         { key: 'satelliteTiles',    label: 'Satellite Tiles',    color: '#06b6d4' },
+        { key: 'streetView',        label: 'Street View',        color: '#14b8a6' },
         { key: 'wikiDescriptions',  label: 'Wiki Descriptions',  color: '#8b5cf6' },
         { key: 'sceneDescriptions', label: 'Scene Descriptions', color: '#f59e0b' },
         { key: 'cardArt',           label: 'Card Art',           color: '#3b82f6' },

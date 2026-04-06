@@ -271,7 +271,7 @@ export function saveStatus(status: PipelineStatus): void {
 export const OLLAMA_URL = "http://127.0.0.1:11434";
 
 export async function unloadOllamaModels(): Promise<void> {
-  const models = ["gemma4:e4b", "qwen3-vl:8b", "qwen2.5vl:7b", "qwen3:14b", "gemma3:27b"];
+  const models = ["gemma4:e4b", "qwen3:14b"];
   for (const model of models) {
     try {
       await fetch(`${OLLAMA_URL}/api/chat`, {
@@ -310,6 +310,17 @@ export function saveJson(filename: string, data: unknown): void {
     writeFileSync(filepath, content);
     try { unlinkSync(tmp); } catch { /* ignore */ }
   }
+}
+
+/** Export REGION_MAP and RARITY_MOODS to JSON so Python stage-3 can read them. */
+export function exportPipelineConfig(): void {
+  const configData = {
+    REGION_MAP: Object.fromEntries(
+      Object.entries(REGION_MAP).map(([k, v]) => [k, v.palette])
+    ),
+    RARITY_MOODS,
+  };
+  saveJson("data/.pipeline-config.json", configData);
 }
 
 /** Save JSON only every N calls — reduces I/O for large loops. Call with force=true at end. */

@@ -46,68 +46,28 @@ DESCRIPTIONS_FILE = Path("data/descriptions.json")
 STATUS_FILE = Path("data/.status.json")
 ART_DIR = Path("data/card-art")
 
-# Region palettes and rarity moods (must match config.ts)
-REGION_MAP = {
-    "ME": "slate blue, autumn amber, harbor grey",
-    "NH": "slate blue, autumn amber, harbor grey",
-    "VT": "slate blue, autumn amber, harbor grey",
-    "MA": "slate blue, autumn amber, harbor grey",
-    "RI": "slate blue, autumn amber, harbor grey",
-    "CT": "slate blue, autumn amber, harbor grey",
-    "NY": "slate blue, autumn amber, harbor grey",
-    "NJ": "slate blue, autumn amber, harbor grey",
-    "PA": "slate blue, autumn amber, harbor grey",
-    "DE": "warm gold, moss green, coral",
-    "MD": "warm gold, moss green, coral",
-    "NC": "warm gold, moss green, coral",
-    "SC": "warm gold, moss green, coral",
-    "GA": "warm gold, moss green, coral",
-    "FL": "warm gold, moss green, coral",
-    "DC": "warm gold, moss green, coral",
-    "OH": "wheat gold, prairie green, storm grey",
-    "IN": "wheat gold, prairie green, storm grey",
-    "IL": "wheat gold, prairie green, storm grey",
-    "MI": "wheat gold, prairie green, storm grey",
-    "WI": "wheat gold, prairie green, storm grey",
-    "MN": "wheat gold, prairie green, storm grey",
-    "IA": "wheat gold, prairie green, storm grey",
-    "MO": "wheat gold, prairie green, storm grey",
-    "ND": "wheat gold, prairie green, storm grey",
-    "SD": "wheat gold, prairie green, storm grey",
-    "NE": "wheat gold, prairie green, storm grey",
-    "KS": "wheat gold, prairie green, storm grey",
-    "KY": "deep amber, rust red, bayou green",
-    "TN": "deep amber, rust red, bayou green",
-    "AL": "deep amber, rust red, bayou green",
-    "MS": "deep amber, rust red, bayou green",
-    "AR": "deep amber, rust red, bayou green",
-    "LA": "deep amber, rust red, bayou green",
-    "MT": "alpine white, granite blue, aspen gold",
-    "ID": "alpine white, granite blue, aspen gold",
-    "WY": "alpine white, granite blue, aspen gold",
-    "CO": "alpine white, granite blue, aspen gold",
-    "UT": "alpine white, granite blue, aspen gold",
-    "WA": "emerald, Pacific blue, fog grey",
-    "OR": "emerald, Pacific blue, fog grey",
-    "CA": "emerald, Pacific blue, fog grey",
-    "AK": "emerald, Pacific blue, fog grey",
-    "HI": "emerald, Pacific blue, fog grey",
-    "AZ": "terracotta, turquoise, sunset orange",
-    "NM": "terracotta, turquoise, sunset orange",
-    "NV": "terracotta, turquoise, sunset orange",
-    "TX": "terracotta, turquoise, sunset orange",
-    "OK": "terracotta, turquoise, sunset orange",
-    "WV": "misty blue-green, forest deep green, morning fog",
-    "VA": "misty blue-green, forest deep green, morning fog",
-}
+# Region palettes and rarity moods — loaded from shared JSON (exported by config.ts)
+PIPELINE_CONFIG_FILE = Path("data/.pipeline-config.json")
 
-RARITY_MOODS = {
-    "common": "soft daylight, clean, simple, peaceful, quiet",
-    "uncommon": "warm afternoon, moderate detail, inviting, pleasant",
-    "rare": "golden hour, rich texture, atmospheric, beautiful",
-    "epic": "dramatic sunset, lush, cinematic, awe-inspiring",
-    "legendary": "god rays, hyper-detailed, luminous, transcendent, mythic",
-}
+def _load_pipeline_config():
+    """Load REGION_MAP and RARITY_MOODS from shared config exported by stage-2."""
+    if PIPELINE_CONFIG_FILE.exists():
+        try:
+            with open(PIPELINE_CONFIG_FILE) as f:
+                cfg = json.load(f)
+            return cfg.get("REGION_MAP", {}), cfg.get("RARITY_MOODS", {})
+        except (json.JSONDecodeError, OSError):
+            pass
+    # Fallback defaults if config not yet exported
+    return {}, {
+        "common": "soft daylight, clean, simple, peaceful, quiet",
+        "uncommon": "warm afternoon, moderate detail, inviting, pleasant",
+        "rare": "golden hour, rich texture, atmospheric, beautiful",
+        "epic": "dramatic sunset, lush, cinematic, awe-inspiring",
+        "legendary": "god rays, hyper-detailed, luminous, transcendent, mythic",
+    }
+
+REGION_MAP, RARITY_MOODS = _load_pipeline_config()
 
 NEGATIVE_PROMPT = (
     "text, words, letters, watermark, signature, people, faces, "
@@ -454,7 +414,9 @@ def main():
         if (i + 1) % 50 == 0:
             update_status(skip + gen, total)
 
-    update_status(skip + gen, total)
+    # Recalculate total from current descriptions (may have grown during follow mode)
+    current_total = len(load_descriptions())
+    update_status(skip + gen, max(current_total, total))
 
     # Follow mode: poll for new descriptions and render them
     if follow_mode:

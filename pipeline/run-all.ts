@@ -11,7 +11,8 @@ import { existsSync } from "fs";
 import { join } from "path";
 
 const COMFYUI_URL = "http://127.0.0.1:8188";
-const CHECKPOINT_DIR = "A:/ComfyUI_Fresh/models/checkpoints";
+const COMFYUI_DIR = process.env.COMFYUI_DIR || "A:/ComfyUI_Fresh";
+const CHECKPOINT_DIR = join(COMFYUI_DIR, "models", "checkpoints");
 
 
 async function preflight(): Promise<boolean> {
