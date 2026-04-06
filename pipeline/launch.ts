@@ -275,15 +275,32 @@ async function main() {
       execSync(`taskkill /PID ${oldPid} /T /F 2>nul`, { stdio: "ignore" });
     } catch { /* ignore if already dead */ }
   }
-  const dashboard = spawn("npx", ["tsx", "pipeline/dashboard/server.ts"], {
-    detached: true,
-    stdio: "ignore",
-    shell: true,
-    cwd: process.cwd(),
-  });
-  dashboard.unref();
-  if (dashboard.pid) {
-    writeFileSync(pidFile, String(dashboard.pid));
+  // Check if dashboard is already running
+  let dashboardReady = await isReachable("http://localhost:9444");
+  if (!dashboardReady) {
+    const dashboard = spawn("npx", ["tsx", "pipeline/dashboard/server.ts"], {
+      detached: true,
+      stdio: "ignore",
+      shell: true,
+      cwd: process.cwd(),
+    });
+    dashboard.unref();
+    if (dashboard.pid) {
+      writeFileSync(pidFile, String(dashboard.pid));
+    }
+    // Wait up to 10s for dashboard to start
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      if (await isReachable("http://localhost:9444")) {
+        dashboardReady = true;
+        break;
+      }
+    }
+  }
+  if (dashboardReady) {
+    console.log("  Dashboard ready at http://localhost:9444");
+  } else {
+    console.log("  Dashboard failed to start (pipeline will continue without it)");
   }
 
   // 7. Run pipeline
