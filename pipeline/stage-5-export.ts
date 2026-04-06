@@ -29,7 +29,7 @@ async function main() {
   }
 
   const descriptions = loadJson<Record<string, string>>(DESCRIPTIONS_FILE);
-  const enrichment = loadJson<Record<string, { flavor: string; person_name: string | null; person_desc: string | null }>>(ENRICHMENT_FILE);
+  const enrichment = loadJson<Record<string, { flavor: string; person_name: string | null; person_desc: string | null; ability_name?: string; ability_desc?: string; county_type?: string; county_seat?: string }>>(ENRICHMENT_FILE);
 
   console.log(`Descriptions: ${Object.keys(descriptions).length}`);
   console.log(`Enrichment: ${Object.keys(enrichment).length}`);
@@ -46,6 +46,8 @@ async function main() {
       update.flavor_text = enrich.flavor;
       if (enrich.person_name) update.notable_person = enrich.person_name;
       if (enrich.person_desc) update.notable_person_desc = enrich.person_desc;
+      if (enrich.ability_name) update.ability_name = enrich.ability_name;
+      if (enrich.ability_desc) update.ability_desc = enrich.ability_desc;
     }
     updates.push(update);
   }
