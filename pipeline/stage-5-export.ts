@@ -48,6 +48,8 @@ async function main() {
       if (enrich.person_desc) update.notable_person_desc = enrich.person_desc;
       if (enrich.ability_name) update.ability_name = enrich.ability_name;
       if (enrich.ability_desc) update.ability_desc = enrich.ability_desc;
+      if (enrich.county_type) update.county_type = enrich.county_type;
+      if (enrich.county_seat) update.county_seat = enrich.county_seat;
     }
     updates.push(update);
   }
@@ -63,6 +65,7 @@ async function main() {
     "stat_power", "stat_resilience", "stat_population", "stat_terrain", "stat_chaos", "stat_culture",
     "display_population", "display_area", "display_disasters",
     "ability_name", "ability_desc",
+    "county_type", "county_seat",
     "flavor_text", "notable_person", "notable_person_desc", "art_prompt",
     "image_url",
   ];
@@ -96,6 +99,8 @@ async function main() {
         display_disasters: row.display_disasters || "",
         ability_name: row.ability_name || "",
         ability_desc: row.ability_desc || "",
+        county_type: row.county_type || "",
+        county_seat: row.county_seat || "",
         flavor_text: row.flavor_text || "",
         notable_person: row.notable_person || "",
         notable_person_desc: row.notable_person_desc || "",

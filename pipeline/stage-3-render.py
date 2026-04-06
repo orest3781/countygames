@@ -1,15 +1,14 @@
 """
 Stage 3: Render — Generate card art via ComfyUI.
 
-Checkpoint: JuggernautXL Ragnarok v13
-LoRAs: ClassipeintXL v2.1 (0.5) + Hyper-SDXL-8steps-CFG (0.6)
+Checkpoint: JuggernautXL Ragnarok v13 (pure, no LoRAs)
 Sampler: dpmpp_2m_sde + karras
 Resolution: 1152x896
 
-Tiered rendering: rarity determines steps, CFG, and polish passes.
+Tiered rendering: rarity determines steps (20-30) and CFG (6-8).
 Resume-safe: skips existing PNGs (validates magic bytes + size >10KB).
 
-Usage: python pipeline/stage-3-render.py
+Usage: python pipeline/stage-3-render.py [--follow]
 """
 
 import hashlib
@@ -273,7 +272,6 @@ def update_status(rendered, total):
 
 
 COMFYUI_CHECKPOINTS_DIR = Path(os.environ.get("COMFYUI_CHECKPOINTS", "A:/ComfyUI_Fresh/models/checkpoints"))
-COMFYUI_LORAS_DIR = Path(os.environ.get("COMFYUI_LORAS", "A:/ComfyUI_Fresh/models/loras"))
 
 
 def preflight():

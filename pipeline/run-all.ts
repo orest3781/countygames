@@ -78,7 +78,7 @@ async function preflight(): Promise<boolean> {
 
   // Disk space
   try {
-    const raw = require("child_process").execSync(
+    const raw = execSync(
       'wmic logicaldisk where "DeviceID=\'S:\'" get FreeSpace /value',
       { encoding: "utf-8" }
     );

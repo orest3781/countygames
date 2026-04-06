@@ -109,15 +109,12 @@ Generates card art via ComfyUI using the scene descriptions from Stage 2.
 **Pre-flight checks:**
 - Verify ComfyUI is running at `http://127.0.0.1:8188`
 - Verify checkpoint file exists: `juggernautXL_ragnarokBy.safetensors`
-- Verify LoRA files exist: `ClassipeintXL2.1.safetensors`, `Hyper-SDXL-8steps-CFG-lora.safetensors`
 - Verify `data/descriptions.json` exists and has entries
 - Estimate disk space needed: ~15GB for 3,144 images at 1152x896
 
 **Checkpoint:** JuggernautXL Ragnarok v13 (`juggernautXL_ragnarokBy.safetensors`) — already installed. Single checkpoint, no swapping.
 
-**LoRAs (stacked):**
-- ClassipeintXL v2.1 at weight 0.5 — oil painting texture for visual cohesion
-- Hyper-SDXL-8steps-CFG at weight 0.6 — distillation acceleration with CFG support. **Must use the CFG variant** (`Hyper-SDXL-8steps-CFG-lora.safetensors`), not the non-CFG variant. The non-CFG variant requires `guidance_scale=0` and DDIM scheduler, which conflicts with ClassipeintXL and the tiered CFG values below. **Need to download** from [HuggingFace ByteDance/Hyper-SD](https://huggingface.co/ByteDance/Hyper-SD/blob/main/Hyper-SDXL-8steps-CFG-lora.safetensors).
+**Model:** Pure JuggernautXL Ragnarok v13, no LoRAs.
 
 **Sampler:** `dpmpp_2m_sde` with `karras` scheduler. Compatible with Hyper-SDXL-CFG variant.
 
@@ -139,15 +136,13 @@ blurry, low quality, oversaturated, cartoon, anime
 
 | Rarity | Steps | CFG | Polish Passes | Denoise |
 |--------|-------|-----|---------------|---------|
-| Common | 8 | 5.0 | 0 | — |
-| Uncommon | 8 | 5.0 | 0 | — |
-| Rare | 12 | 6.0 | 1 | 0.35 |
-| Epic | 16 | 7.0 | 1 | 0.30 |
-| Legendary | 16 | 8.0 | 2 | 0.30, 0.20 |
+| Common | 20 | 6.0 | 0 | — |
+| Uncommon | 25 | 7.0 | 0 | — |
+| Rare | 25 | 7.0 | 1 | 0.35 |
+| Epic | 30 | 7.5 | 1 | 0.30 |
+| Legendary | 30 | 8.0 | 2 | 0.30, 0.20 |
 
-Step counts are calibrated for Hyper-SDXL-8steps-CFG LoRA. The CFG variant supports CFG values 5-8 (unlike the non-CFG variant which requires 0). Without distillation, SDXL needs 20+ steps. With Hyper-SDXL-CFG, 8 steps produces quality comparable to 25+ standard steps.
-
-"Polish pass" = img2img on the card's own output using the same checkpoint + LoRAs at low denoise. Adds texture and sharpens detail without changing composition.
+"Polish pass" = img2img on the card's own output using the same checkpoint at low denoise. Adds texture and sharpens detail without changing composition.
 
 **Output:** `data/card-art/{fips}.png`
 
@@ -278,7 +273,7 @@ Applied to the prompt to differentiate visual intensity.
 
 ## Dashboard (`pipeline/dashboard/server.ts`) — NEW
 
-Complete rewrite replacing the v1 dashboard (listed under "What Gets Replaced" above). Read-only monitoring UI served at `http://localhost:3333`.
+Complete rewrite replacing the v1 dashboard (listed under "What Gets Replaced" above). Read-only monitoring UI served at `http://localhost:9444`.
 
 ### What it shows
 
@@ -355,7 +350,7 @@ The dashboard reads this file. Each stage updates it on completion and periodica
 **External services:**
 - Supabase (existing project, unchanged)
 - Ollama at localhost:11434 (Qwen3-VL:8b for Stage 2, Qwen3:14b for Stage 4)
-- ComfyUI at localhost:8188 (JuggernautXL Ragnarok v13 + ClassipeintXL + Hyper-SDXL for Stage 3)
+- ComfyUI at localhost:8188 (Pure JuggernautXL Ragnarok v13, no LoRAs for Stage 3)
 
 **npm packages:** No new dependencies. Uses existing Supabase JS, dotenv, fs, path.
 
@@ -365,8 +360,6 @@ The dashboard reads this file. Each stage updates it on completion and periodica
 - `ollama pull qwen3-vl:8b` (already installed)
 - `ollama pull qwen3:14b` (need to pull)
 - JuggernautXL Ragnarok v13 checkpoint (`juggernautXL_ragnarokBy.safetensors`) — already installed
-- Hyper-SDXL-8steps-CFG LoRA (`Hyper-SDXL-8steps-CFG-lora.safetensors`) — **need to download** from [HuggingFace](https://huggingface.co/ByteDance/Hyper-SD/blob/main/Hyper-SDXL-8steps-CFG-lora.safetensors)
-- ClassipeintXL v2.1 LoRA — **need to download** from CivitAI
 
 **Pre-flight check:** `run-all.ts` verifies all models and services are available before starting any stage. Prints a clear checklist:
 ```
@@ -375,8 +368,6 @@ The dashboard reads this file. Each stage updates it on completion and periodica
 [OK] Model qwen3:14b available
 [OK] ComfyUI running at localhost:8188
 [OK] Checkpoint juggernautXL_ragnarokBy.safetensors found
-[OK] LoRA Hyper-SDXL-8steps-CFG-lora.safetensors found
-[OK] LoRA ClassipeintXL2.1.safetensors found
 [OK] Supabase connection verified
 [OK] Disk space: 42GB available (need ~16GB)
 ```

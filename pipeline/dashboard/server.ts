@@ -961,7 +961,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         var age = Date.now() - new Date(info.timestamp).getTime();
         if (age > 10 * 60 * 1000) isStalled = true;
       }
-      if (!info.complete && info.failed > 0 && !isStalled) return 'failed';
+      if (!info.complete && info.failed > 0) return 'failed';
       if (isStalled) return 'stalled';
       return 'in-progress';
     }

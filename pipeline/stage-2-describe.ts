@@ -285,11 +285,9 @@ async function main() {
   // Warm up the vision model (first call loads it into VRAM, can take 30-60s)
   console.log("Loading vision model into VRAM (this may take 30-60 seconds on first run)...");
   try {
-    const warmupJpg = join(SAT_DIR, counties[0].fips + ".jpg");
-    const warmupPng = join(SAT_DIR, counties[0].fips + ".png");
-    const warmupPath = existsSync(warmupPng) ? warmupPng : warmupJpg;
-    if (existsSync(warmupPath)) {
-      const img = readFileSync(warmupPath).toString("base64");
+    const satFiles = readdirSync(SAT_DIR).filter(f => f.endsWith(".png") || f.endsWith(".jpg"));
+    if (satFiles.length > 0) {
+      const img = readFileSync(join(SAT_DIR, satFiles[0])).toString("base64");
       await queryVision(img, "Describe this image in 5 words.");
       console.log("Vision model ready.\n");
     }
