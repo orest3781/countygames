@@ -1357,6 +1357,176 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 </html>`;
 
 // ===================================================================
+// Compare Viewer HTML
+// ===================================================================
+
+const COMPARE_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>County Compare — Pipeline v2</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0a0e17;color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;min-height:100vh}
+  .top-bar{background:#111827;border-bottom:1px solid #1e293b;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+  .top-bar h1{font-size:16px;font-weight:700;color:#fff}
+  .top-bar h1 a{color:#3b82f6;text-decoration:none}
+  .nav{display:flex;align-items:center;gap:8px}
+  .nav button{background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit}
+  .nav button:hover{border-color:#3b82f6;color:#f1f5f9}
+  .nav select{background:#1e293b;border:1px solid #334155;color:#f1f5f9;padding:6px 10px;border-radius:6px;font-size:13px;font-family:inherit;max-width:300px}
+  .nav .counter{font-size:12px;color:#64748b;font-family:'SF Mono','Cascadia Code',monospace}
+  .container{max-width:1400px;margin:0 auto;padding:24px}
+  .county-header{margin-bottom:20px}
+  .county-header h2{font-size:20px;font-weight:800;color:#fff;margin-bottom:4px}
+  .county-header .meta{font-size:13px;color:#64748b;display:flex;gap:16px;flex-wrap:wrap}
+  .county-header .meta span{display:inline-flex;align-items:center;gap:4px}
+  .badge{background:#1e293b;border:1px solid #334155;padding:2px 8px;border-radius:4px;font-size:11px;font-family:'SF Mono','Cascadia Code',monospace}
+  .badge.legendary{border-color:#f59e0b;color:#f59e0b}
+  .badge.epic{border-color:#8b5cf6;color:#8b5cf6}
+  .badge.rare{border-color:#3b82f6;color:#3b82f6}
+  .badge.uncommon{border-color:#10b981;color:#10b981}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+  .card{background:#111827;border:1px solid #1e293b;border-radius:12px;overflow:hidden}
+  .card-label{padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between}
+  .card-label .dot{width:8px;height:8px;border-radius:50%}
+  .card img{width:100%;display:block;aspect-ratio:4/3;object-fit:cover;background:#0a0e17}
+  .card .no-image{padding:40px;text-align:center;color:#475569;font-size:13px;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
+  .text-card{padding:16px}
+  .text-card .wiki-text{font-size:13px;line-height:1.6;color:#94a3b8;max-height:120px;overflow-y:auto}
+  .text-card .desc-text{font-size:15px;line-height:1.6;color:#f1f5f9;font-style:italic}
+  .text-card .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:6px}
+  .enrichment{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px}
+  .enrich-item{background:#111827;border:1px solid #1e293b;border-radius:8px;padding:12px}
+  .enrich-item .elabel{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:4px}
+  .enrich-item .evalue{font-size:13px;color:#f1f5f9}
+  .enrich-item .evalue.null{color:#475569;font-style:italic}
+  .full-width{grid-column:1/-1}
+  @media(max-width:768px){.grid{grid-template-columns:1fr}.enrichment{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <h1><a href="/">Dashboard</a> / Compare</h1>
+  <div class="nav">
+    <button id="prevBtn" onclick="go(-1)">&larr; Prev</button>
+    <select id="countySelect" onchange="loadCounty(this.value)"></select>
+    <button id="nextBtn" onclick="go(1)">Next &rarr;</button>
+    <span class="counter" id="counter"></span>
+  </div>
+</div>
+<div class="container" id="content">
+  <div style="text-align:center;color:#475569;padding:60px">Loading county list...</div>
+</div>
+<script>
+var counties = [];
+var currentIdx = 0;
+
+async function init() {
+  var res = await fetch('/api/county-list');
+  counties = await res.json();
+  var sel = document.getElementById('countySelect');
+  for (var i = 0; i < counties.length; i++) {
+    var o = document.createElement('option');
+    o.value = counties[i].fips;
+    o.textContent = counties[i].fips + ' (' + counties[i].state + ') ' + (counties[i].rarity || '');
+    sel.appendChild(o);
+  }
+  document.getElementById('counter').textContent = counties.length + ' counties';
+  // Check URL hash for initial county
+  var hash = location.hash.replace('#', '');
+  if (hash && counties.some(function(c){ return c.fips === hash; })) {
+    currentIdx = counties.findIndex(function(c){ return c.fips === hash; });
+  }
+  if (counties.length > 0) loadCounty(counties[currentIdx].fips);
+}
+
+function go(delta) {
+  currentIdx = Math.max(0, Math.min(counties.length - 1, currentIdx + delta));
+  document.getElementById('countySelect').value = counties[currentIdx].fips;
+  loadCounty(counties[currentIdx].fips);
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowLeft') go(-1);
+  if (e.key === 'ArrowRight') go(1);
+});
+
+async function loadCounty(fips) {
+  location.hash = fips;
+  currentIdx = counties.findIndex(function(c){ return c.fips === fips; });
+  var res = await fetch('/api/county/' + fips);
+  var d = await res.json();
+  var meta = d.meta || {};
+  var enrich = d.enrichment || {};
+
+  var html = '<div class="county-header">';
+  html += '<h2>FIPS ' + esc(fips) + '</h2>';
+  html += '<div class="meta">';
+  if (meta.state_abbr) html += '<span>State: <span class="badge">' + esc(meta.state_abbr) + '</span></span>';
+  if (meta.rarity) html += '<span>Rarity: <span class="badge ' + esc(meta.rarity) + '">' + esc(meta.rarity) + '</span></span>';
+  if (enrich.county_type) html += '<span>Type: <span class="badge">' + esc(enrich.county_type) + '</span></span>';
+  if (enrich.county_seat) html += '<span>Seat: ' + esc(enrich.county_seat) + '</span>';
+  html += '</div></div>';
+
+  // Image grid: satellite, street view, card art
+  html += '<div class="grid">';
+
+  // Satellite
+  html += '<div class="card">';
+  html += '<div class="card-label">Satellite (Google 640x640) <span class="dot" style="background:' + (d.hasSatellite ? '#10b981' : '#475569') + '"></span></div>';
+  if (d.hasSatellite) html += '<img src="/api/satellite/' + fips + '" alt="Satellite">';
+  else html += '<div class="no-image">No satellite tile</div>';
+  html += '</div>';
+
+  // Street View
+  html += '<div class="card">';
+  html += '<div class="card-label">Street View (Courthouse) <span class="dot" style="background:' + (d.hasStreetView ? '#10b981' : '#475569') + '"></span></div>';
+  if (d.hasStreetView) html += '<img src="/api/streetview/' + fips + '" alt="Street View">';
+  else html += '<div class="no-image">No street view coverage</div>';
+  html += '</div>';
+
+  // Card Art
+  html += '<div class="card">';
+  html += '<div class="card-label">Generated Card Art <span class="dot" style="background:' + (d.hasArt ? '#10b981' : '#475569') + '"></span></div>';
+  if (d.hasArt) html += '<img src="/api/art/' + fips + '" alt="Card Art">';
+  else html += '<div class="no-image">Not yet generated (Stage 3)</div>';
+  html += '</div>';
+
+  // Text: description + wiki
+  html += '<div class="card">';
+  html += '<div class="text-card">';
+  html += '<div class="label">AI Scene Description (Stage 2)</div>';
+  if (d.description) html += '<div class="desc-text">' + esc(d.description) + '</div>';
+  else html += '<div class="desc-text null">Not yet generated</div>';
+  html += '<div style="margin-top:14px"><div class="label">Wikipedia Extract</div>';
+  if (d.wiki) html += '<div class="wiki-text">' + esc(d.wiki) + '</div>';
+  else html += '<div class="wiki-text null">No Wikipedia data</div>';
+  html += '</div></div></div>';
+
+  html += '</div>';
+
+  // Enrichment data
+  if (enrich.flavor || enrich.ability_name || enrich.person_name) {
+    html += '<div class="enrichment">';
+    html += '<div class="enrich-item"><div class="elabel">Flavor Text</div><div class="evalue' + (!enrich.flavor ? ' null' : '') + '">' + esc(enrich.flavor || 'Not generated') + '</div></div>';
+    html += '<div class="enrich-item"><div class="elabel">Ability</div><div class="evalue' + (!enrich.ability_name ? ' null' : '') + '">' + esc(enrich.ability_name ? enrich.ability_name + ' — ' + enrich.ability_desc : 'Not assigned') + '</div></div>';
+    html += '<div class="enrich-item"><div class="elabel">Notable Person</div><div class="evalue' + (!enrich.person_name ? ' null' : '') + '">' + esc(enrich.person_name ? enrich.person_name + (enrich.person_desc ? ' — ' + enrich.person_desc : '') : 'None found') + '</div></div>';
+    html += '</div>';
+  }
+
+  document.getElementById('content').innerHTML = html;
+}
+
+function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+init();
+</script>
+</body>
+</html>`;
+
+// ===================================================================
 // HTTP Server
 // ===================================================================
 
@@ -1409,6 +1579,76 @@ const server = http.createServer((req, res) => {
   if (artMatch && req.method === "GET") {
     const fips = decodeURIComponent(artMatch[1]);
     serveArtFile(fips, res);
+    return;
+  }
+
+  // GET /api/satellite/:fips — serve satellite tile
+  const satMatch = pathname.match(/^\/api\/satellite\/(.+)$/);
+  if (satMatch && req.method === "GET") {
+    const fips = decodeURIComponent(satMatch[1]).replace(/[^0-9]/g, "");
+    const pngPath = join(DATA_DIR, "satellite", fips + ".png");
+    const jpgPath = join(DATA_DIR, "satellite", fips + ".jpg");
+    const filePath = existsSync(pngPath) ? pngPath : existsSync(jpgPath) ? jpgPath : null;
+    if (!filePath) { res.writeHead(404); res.end(); return; }
+    const data = readFileSync(filePath);
+    const ct = filePath.endsWith(".png") ? "image/png" : "image/jpeg";
+    res.writeHead(200, { "Content-Type": ct, "Cache-Control": "public, max-age=3600" });
+    res.end(data);
+    return;
+  }
+
+  // GET /api/streetview/:fips — serve street view image
+  const svMatch = pathname.match(/^\/api\/streetview\/(.+)$/);
+  if (svMatch && req.method === "GET") {
+    const fips = decodeURIComponent(svMatch[1]).replace(/[^0-9]/g, "");
+    const filePath = join(DATA_DIR, "streetview", fips + ".jpg");
+    if (!existsSync(filePath)) { res.writeHead(404); res.end(); return; }
+    const data = readFileSync(filePath);
+    res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=3600" });
+    res.end(data);
+    return;
+  }
+
+  // GET /api/county/:fips — all data for one county
+  const countyMatch = pathname.match(/^\/api\/county\/(.+)$/);
+  if (countyMatch && req.method === "GET") {
+    const fips = decodeURIComponent(countyMatch[1]).replace(/[^0-9]/g, "");
+    const wiki = safeReadJson(join(DATA_DIR, "wiki.json")) as Record<string, string> | null;
+    const descriptions = safeReadJson(join(DATA_DIR, "descriptions.json")) as Record<string, string> | null;
+    const enrichment = safeReadJson(join(DATA_DIR, "enrichment.json")) as Record<string, unknown> | null;
+    const meta = safeReadJson(join(DATA_DIR, "cards-meta.json")) as Record<string, unknown> | null;
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+    res.end(JSON.stringify({
+      fips,
+      wiki: wiki?.[fips] || null,
+      description: descriptions?.[fips] || null,
+      enrichment: enrichment?.[fips] || null,
+      meta: meta?.[fips] || null,
+      hasSatellite: existsSync(join(DATA_DIR, "satellite", fips + ".png")) || existsSync(join(DATA_DIR, "satellite", fips + ".jpg")),
+      hasStreetView: existsSync(join(DATA_DIR, "streetview", fips + ".jpg")),
+      hasArt: existsSync(join(DATA_DIR, "card-art", fips + ".png")),
+    }));
+    return;
+  }
+
+  // GET /api/county-list — list all FIPS with available data
+  if (pathname === "/api/county-list" && req.method === "GET") {
+    const descriptions = safeReadJson(join(DATA_DIR, "descriptions.json")) as Record<string, string> | null;
+    const meta = safeReadJson(join(DATA_DIR, "cards-meta.json")) as Record<string, unknown> | null;
+    const fipsList = descriptions ? Object.keys(descriptions).sort() : [];
+    const list = fipsList.map(fips => {
+      const m = (meta?.[fips] || {}) as Record<string, string>;
+      return { fips, state: m.state_abbr || "", rarity: m.rarity || "" };
+    });
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+    res.end(JSON.stringify(list));
+    return;
+  }
+
+  // GET /compare — comparison viewer page
+  if (pathname === "/compare" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(COMPARE_HTML);
     return;
   }
 
