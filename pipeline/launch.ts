@@ -189,15 +189,21 @@ async function checkSupabase(): Promise<boolean> {
 function checkDiskSpace(): boolean {
   console.log("\n── Disk Space ──");
   try {
-    // Check S: drive (project) and A: drive (ComfyUI)
-    for (const drive of ["S:", "A:"]) {
-      const raw = execSync(`wmic logicaldisk where DeviceID="${drive}" get FreeSpace /value`, { encoding: "utf-8" });
-      const match = raw.match(/FreeSpace=(\d+)/);
-      if (match) {
-        const freeGB = parseInt(match[1]) / (1024 ** 3);
-        const status = freeGB > 16 ? "[OK]" : freeGB > 5 ? "[WARN]" : "[FAIL]";
-        console.log(`  ${status} ${drive} ${freeGB.toFixed(1)} GB free`);
-        if (freeGB < 5) return false;
+    for (const drive of ["S", "A"]) {
+      try {
+        const raw = execSync(
+          `powershell -NoProfile -Command "(Get-PSDrive ${drive}).Free"`,
+          { encoding: "utf-8", timeout: 5000 }
+        );
+        const bytes = parseInt(raw.trim());
+        if (!isNaN(bytes)) {
+          const freeGB = bytes / (1024 ** 3);
+          const status = freeGB > 16 ? "[OK]" : freeGB > 5 ? "[WARN]" : "[FAIL]";
+          console.log(`  ${status} ${drive}: ${freeGB.toFixed(1)} GB free`);
+          if (freeGB < 5) return false;
+        }
+      } catch {
+        console.log(`  [SKIP] ${drive}: drive`);
       }
     }
   } catch {

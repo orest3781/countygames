@@ -79,18 +79,20 @@ async function preflight(): Promise<boolean> {
   // Disk space
   try {
     const raw = execSync(
-      'wmic logicaldisk where "DeviceID=\'S:\'" get FreeSpace /value',
-      { encoding: "utf-8" }
+      'powershell -NoProfile -Command "(Get-PSDrive S).Free"',
+      { encoding: "utf-8", timeout: 5000 }
     );
-    const match = raw.match(/FreeSpace=(\d+)/);
-    if (match) {
-      const freeGB = parseInt(match[1]) / (1024 ** 3);
+    const bytes = parseInt(raw.trim());
+    if (!isNaN(bytes)) {
+      const freeGB = bytes / (1024 ** 3);
       if (freeGB < 16) {
         console.log(`[FAIL] Disk space: ${freeGB.toFixed(1)} GB free (need ~16GB)`);
         ok = false;
       } else {
         console.log(`[OK] Disk space: ${freeGB.toFixed(1)} GB free`);
       }
+    } else {
+      console.log("[SKIP] Could not parse disk space");
     }
   } catch {
     console.log("[SKIP] Could not check disk space");
