@@ -47,3 +47,83 @@ export function formatEducation(pct: number | null): string {
   if (pct === null || Number.isNaN(pct)) return "N/A";
   return `${Math.round(pct)}% bachelor's+`;
 }
+
+export interface RawCounty {
+  fips: string;
+  name: string;
+  state_abbr: string;
+  state_name: string;
+  land_area_sq_mi: number | null;
+  population: number | null;
+  median_household_income: number | null;
+  gdp_total: number | null;
+  gdp_per_capita: number | null;
+  pct_bachelors_or_higher: number | null;
+  unemployment_rate: number | null;
+  life_expectancy: number | null;
+  primary_care_physicians_rate: number | null;
+  pct_uninsured: number | null;
+  violent_crime_rate: number | null;
+  total_disasters: number | null;
+}
+
+export interface StatBlock {
+  wealth: number;
+  health: number;
+  people: number;
+  land: number;
+  danger: number;
+  education: number;
+}
+
+/**
+ * Compute the 6 stats (percentile-ranked across ALL input rows) plus a
+ * total-score rarity tier. Mirrors the legacy compute-stats.ts weights, but
+ * ranks across every county (not just a curated subset) and renames stats.
+ */
+export function computeStatsAndRarity(
+  rows: RawCounty[]
+): Map<string, { stats: StatBlock; rarity: Rarity; totalScore: number }> {
+  const pctlGdpPerCapita = percentileRank(rows.map((m) => m.gdp_per_capita));
+  const pctlMedianIncome = percentileRank(rows.map((m) => m.median_household_income));
+  const pctlPop = percentileRank(rows.map((m) => (m.population ? Math.log10(m.population) : null)));
+  const pctlGDP = percentileRank(rows.map((m) => m.gdp_total));
+  const pctlLifeExp = percentileRank(rows.map((m) => m.life_expectancy));
+  const pctlPhysicians = percentileRank(rows.map((m) => m.primary_care_physicians_rate));
+  const pctlInvUninsured = percentileRank(rows.map((m) => (m.pct_uninsured ? -m.pct_uninsured : null)));
+  const pctlArea = percentileRank(rows.map((m) => m.land_area_sq_mi));
+  const pctlDisasters = percentileRank(rows.map((m) => m.total_disasters));
+  const pctlCrime = percentileRank(rows.map((m) => m.violent_crime_rate));
+  const pctlEducation = percentileRank(rows.map((m) => m.pct_bachelors_or_higher));
+  const pctlLowUnemp = percentileRank(rows.map((m) => (m.unemployment_rate ? -m.unemployment_rate : null)));
+
+  const computed = rows.map((m, i) => {
+    const stats: StatBlock = {
+      wealth: Math.round(0.5 * pctlGdpPerCapita[i] + 0.5 * pctlMedianIncome[i]),
+      people: Math.round(0.7 * pctlPop[i] + 0.3 * pctlGDP[i]),
+      health: Math.round(0.4 * pctlLifeExp[i] + 0.3 * pctlPhysicians[i] + 0.3 * pctlInvUninsured[i]),
+      land: pctlArea[i],
+      danger: Math.round(0.6 * pctlDisasters[i] + 0.4 * pctlCrime[i]),
+      education: Math.round(0.6 * pctlEducation[i] + 0.4 * pctlLowUnemp[i]),
+    };
+    const totalScore = stats.wealth + stats.health + stats.people + stats.land + stats.danger + stats.education;
+    return { fips: m.fips, stats, totalScore };
+  });
+
+  // Rarity by total-score percentile (same thresholds as legacy pipeline).
+  const byScore = [...computed].sort((a, b) => a.totalScore - b.totalScore);
+  const n = byScore.length;
+  const rarityByFips = new Map<string, Rarity>();
+  byScore.forEach((c, idx) => {
+    const pctl = ((idx + 1) / n) * 100;
+    const rarity: Rarity =
+      pctl <= 40 ? "common" : pctl <= 70 ? "uncommon" : pctl <= 90 ? "rare" : pctl <= 97 ? "epic" : "legendary";
+    rarityByFips.set(c.fips, rarity);
+  });
+
+  const out = new Map<string, { stats: StatBlock; rarity: Rarity; totalScore: number }>();
+  for (const c of computed) {
+    out.set(c.fips, { stats: c.stats, rarity: rarityByFips.get(c.fips)!, totalScore: c.totalScore });
+  }
+  return out;
+}

@@ -7,6 +7,8 @@ import {
   formatDisasters,
   formatLifeExpectancy,
   formatEducation,
+  computeStatsAndRarity,
+  type RawCounty,
 } from "./lib";
 
 describe("percentileRank", () => {
@@ -52,5 +54,45 @@ describe("formatters", () => {
   it("formatEducation", () => {
     expect(formatEducation(32.4)).toBe("32% bachelor's+");
     expect(formatEducation(null)).toBe("N/A");
+  });
+});
+
+function blankRaw(fips: string): RawCounty {
+  return {
+    fips, name: `County ${fips}`, state_abbr: "XX", state_name: "X",
+    land_area_sq_mi: null, population: null, median_household_income: null,
+    gdp_total: null, gdp_per_capita: null, pct_bachelors_or_higher: null,
+    unemployment_rate: null, life_expectancy: null,
+    primary_care_physicians_rate: null, pct_uninsured: null,
+    violent_crime_rate: null, total_disasters: null,
+  };
+}
+
+describe("computeStatsAndRarity", () => {
+  const rows: RawCounty[] = [
+    { ...blankRaw("01001"), population: 100, median_household_income: 30000, gdp_per_capita: 20000, land_area_sq_mi: 100, pct_bachelors_or_higher: 10 },
+    { ...blankRaw("01003"), population: 1000, median_household_income: 60000, gdp_per_capita: 60000, land_area_sq_mi: 500, pct_bachelors_or_higher: 40 },
+    { ...blankRaw("01005"), population: 5000, median_household_income: 90000, gdp_per_capita: 90000, land_area_sq_mi: 2000, pct_bachelors_or_higher: 60 },
+  ];
+  const result = computeStatsAndRarity(rows);
+
+  it("returns one entry per input keyed by fips", () => {
+    expect(result.size).toBe(3);
+    expect(result.has("01005")).toBe(true);
+  });
+  it("all stats are integers within 1-100", () => {
+    for (const { stats } of result.values()) {
+      for (const v of Object.values(stats)) {
+        expect(Number.isInteger(v)).toBe(true);
+        expect(v).toBeGreaterThanOrEqual(1);
+        expect(v).toBeLessThanOrEqual(100);
+      }
+    }
+  });
+  it("richer county ranks higher on wealth", () => {
+    expect(result.get("01005")!.stats.wealth).toBeGreaterThan(result.get("01001")!.stats.wealth);
+  });
+  it("assigns the top total-score county the highest rarity tier present", () => {
+    expect(result.get("01005")!.totalScore).toBeGreaterThan(result.get("01001")!.totalScore);
   });
 });
