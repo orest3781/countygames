@@ -139,4 +139,13 @@ describe("answer pool", () => {
     });
     expect(pool.has("36061")).toBe(false);
   });
+
+  it("excludes a famous county with art that is absent from allFips", () => {
+    const pool = buildAnswerPool({
+      allFips: [], // 04013 is a capital+iconic county and has art, but is not in allFips
+      populationByFips: new Map([["04013", 4_000_000]]),
+      hasArt: () => true,
+    });
+    expect(pool.has("04013")).toBe(false);
+  });
 });
