@@ -127,3 +127,62 @@ export function computeStatsAndRarity(
   }
   return out;
 }
+
+/** State-capital county FIPS (one per state + DC). */
+export const STATE_CAPITAL_FIPS: string[] = [
+  "01101", "02020", "04013", "05119", "06067", "08031", "09003", "10003",
+  "11001", "12073", "13121", "15003", "16001", "17167", "18097", "19153",
+  "20177", "21073", "22033", "23011", "24003", "25025", "26065", "27123",
+  "28049", "29051", "30049", "31109", "32510", "33013", "34021", "35049",
+  "36001", "37183", "38015", "39049", "40109", "41047", "42043", "44007",
+  "45079", "46065", "47037", "48453", "49035", "50021", "51760", "53067",
+  "54039", "55025", "56021",
+];
+
+/** Famous / iconic county FIPS to always include. */
+export const ICONIC_FIPS: string[] = [
+  "36061", "06037", "17031", "12086", "48201", "04013", "32003", "06073",
+  "48029", "06065", "36047", "36081", "36005", "36085", "06075", "25017",
+  "42101", "53033", "08035", "48301", "15001", "02185", "06071", "51013",
+  "24031", "12011", "12095", "26163", "29189", "27053", "41005", "55079",
+  "39035", "18089", "22071", "48141", "35001", "16055", "30031", "56039",
+];
+
+/** Pick the n most-populous county FIPS within each state (state = first 2 of fips). */
+export function topNPopulousPerState(populationByFips: Map<string, number>, n: number): Set<string> {
+  const byState = new Map<string, { fips: string; pop: number }[]>();
+  for (const [fips, pop] of populationByFips) {
+    const st = fips.substring(0, 2);
+    const arr = byState.get(st) ?? [];
+    arr.push({ fips, pop });
+    byState.set(st, arr);
+  }
+  const out = new Set<string>();
+  for (const arr of byState.values()) {
+    arr.sort((a, b) => b.pop - a.pop);
+    for (const { fips } of arr.slice(0, n)) out.add(fips);
+  }
+  return out;
+}
+
+/**
+ * The Countle daily answer pool: genuinely recognizable counties that also
+ * have art. Famous = state capitals ∪ iconic ∪ top-5-most-populous-per-state.
+ */
+export function buildAnswerPool(opts: {
+  allFips: string[];
+  populationByFips: Map<string, number>;
+  hasArt: (fips: string) => boolean;
+}): Set<string> {
+  const famous = new Set<string>([
+    ...STATE_CAPITAL_FIPS,
+    ...ICONIC_FIPS,
+    ...topNPopulousPerState(opts.populationByFips, 5),
+  ]);
+  const allSet = new Set(opts.allFips);
+  const pool = new Set<string>();
+  for (const fips of famous) {
+    if (allSet.has(fips) && opts.hasArt(fips)) pool.add(fips);
+  }
+  return pool;
+}

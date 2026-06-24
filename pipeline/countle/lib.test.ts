@@ -8,6 +8,10 @@ import {
   formatLifeExpectancy,
   formatEducation,
   computeStatsAndRarity,
+  STATE_CAPITAL_FIPS,
+  ICONIC_FIPS,
+  topNPopulousPerState,
+  buildAnswerPool,
   type RawCounty,
 } from "./lib";
 
@@ -95,5 +99,44 @@ describe("computeStatsAndRarity", () => {
   it("assigns the top total-score county the highest rarity tier", () => {
     expect(result.get("01005")!.rarity).toBe("legendary");
     expect(result.get("01001")!.rarity).toBe("common");
+  });
+});
+
+describe("answer pool", () => {
+  it("has 51 capitals and 40 iconic", () => {
+    expect(STATE_CAPITAL_FIPS.length).toBe(51);
+    expect(ICONIC_FIPS.length).toBe(40);
+  });
+
+  it("topNPopulousPerState picks the n largest per state", () => {
+    const pop = new Map<string, number>([
+      ["01001", 100], ["01003", 300], ["01005", 200], // AL
+      ["02001", 50], // AK
+    ]);
+    const top2 = topNPopulousPerState(pop, 2);
+    expect(top2.has("01003")).toBe(true); // largest AL
+    expect(top2.has("01005")).toBe(true); // 2nd AL
+    expect(top2.has("01001")).toBe(false); // 3rd AL excluded
+    expect(top2.has("02001")).toBe(true); // only AK
+  });
+
+  it("buildAnswerPool = (capitals ∪ iconic ∪ top5pop) ∩ hasArt", () => {
+    const pop = new Map<string, number>([["04013", 4_000_000]]); // Maricopa (iconic + capital)
+    const pool = buildAnswerPool({
+      allFips: ["04013", "01001"],
+      populationByFips: pop,
+      hasArt: (f) => f === "04013", // 01001 has no art
+    });
+    expect(pool.has("04013")).toBe(true);
+    expect(pool.has("01001")).toBe(false); // not famous + no art
+  });
+
+  it("excludes a famous county that lacks art", () => {
+    const pool = buildAnswerPool({
+      allFips: ["36061"], // Manhattan (iconic)
+      populationByFips: new Map(),
+      hasArt: () => false,
+    });
+    expect(pool.has("36061")).toBe(false);
   });
 });
