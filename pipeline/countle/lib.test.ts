@@ -26,15 +26,18 @@ describe("formatters", () => {
     expect(formatPopulation(1_500_000)).toBe("1.50M");
     expect(formatPopulation(2500)).toBe("2.5K");
     expect(formatPopulation(300)).toBe("300");
+    expect(formatPopulation(0)).toBe("0");
     expect(formatPopulation(null)).toBe("N/A");
   });
   it("formatMoney (Census -666666666 sentinel = N/A)", () => {
     expect(formatMoney(54300)).toBe("$54,300");
     expect(formatMoney(-666666666)).toBe("N/A");
+    expect(formatMoney(0)).toBe("$0");
     expect(formatMoney(null)).toBe("N/A");
   });
   it("formatArea", () => {
     expect(formatArea(4753)).toBe("4,753 sq mi");
+    expect(formatArea(0)).toBe("0 sq mi");
     expect(formatArea(null)).toBe("N/A");
   });
   it("formatDisasters", () => {

@@ -17,19 +17,19 @@ export function percentileRank(values: (number | null)[]): number[] {
 }
 
 export function formatPopulation(pop: number | null): string {
-  if (!pop) return "N/A";
+  if (pop == null) return "N/A";
   if (pop >= 1_000_000) return `${(pop / 1_000_000).toFixed(2)}M`;
   if (pop >= 1_000) return `${(pop / 1_000).toFixed(1)}K`;
   return pop.toString();
 }
 
 export function formatMoney(val: number | null): string {
-  if (!val || val < 0) return "N/A"; // Census uses -666666666 as "no data"
+  if (val == null || val < 0) return "N/A"; // any negative (incl. Census -666666666 sentinel) → N/A
   return "$" + val.toLocaleString("en-US");
 }
 
 export function formatArea(sqmi: number | null): string {
-  if (!sqmi) return "N/A";
+  if (sqmi == null) return "N/A";
   return `${sqmi.toLocaleString("en-US", { maximumFractionDigits: 0 })} sq mi`;
 }
 
@@ -39,7 +39,7 @@ export function formatDisasters(count: number | null): string {
 }
 
 export function formatLifeExpectancy(years: number | null): string {
-  if (!years) return "N/A";
+  if (years == null) return "N/A";
   return `${years.toFixed(1)} yr life exp`;
 }
 
