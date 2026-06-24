@@ -90,19 +90,19 @@ export function computeStatsAndRarity(
   const pctlGDP = percentileRank(rows.map((m) => m.gdp_total));
   const pctlLifeExp = percentileRank(rows.map((m) => m.life_expectancy));
   const pctlPhysicians = percentileRank(rows.map((m) => m.primary_care_physicians_rate));
-  const pctlInvUninsured = percentileRank(rows.map((m) => (m.pct_uninsured ? -m.pct_uninsured : null)));
+  const pctlInvUninsured = percentileRank(rows.map((m) => (m.pct_uninsured != null ? -m.pct_uninsured : null)));
   const pctlArea = percentileRank(rows.map((m) => m.land_area_sq_mi));
   const pctlDisasters = percentileRank(rows.map((m) => m.total_disasters));
   const pctlCrime = percentileRank(rows.map((m) => m.violent_crime_rate));
   const pctlEducation = percentileRank(rows.map((m) => m.pct_bachelors_or_higher));
-  const pctlLowUnemp = percentileRank(rows.map((m) => (m.unemployment_rate ? -m.unemployment_rate : null)));
+  const pctlLowUnemp = percentileRank(rows.map((m) => (m.unemployment_rate != null ? -m.unemployment_rate : null)));
 
   const computed = rows.map((m, i) => {
     const stats: StatBlock = {
       wealth: Math.round(0.5 * pctlGdpPerCapita[i] + 0.5 * pctlMedianIncome[i]),
       people: Math.round(0.7 * pctlPop[i] + 0.3 * pctlGDP[i]),
       health: Math.round(0.4 * pctlLifeExp[i] + 0.3 * pctlPhysicians[i] + 0.3 * pctlInvUninsured[i]),
-      land: pctlArea[i],
+      land: Math.round(pctlArea[i]),
       danger: Math.round(0.6 * pctlDisasters[i] + 0.4 * pctlCrime[i]),
       education: Math.round(0.6 * pctlEducation[i] + 0.4 * pctlLowUnemp[i]),
     };

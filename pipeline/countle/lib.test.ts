@@ -92,7 +92,8 @@ describe("computeStatsAndRarity", () => {
   it("richer county ranks higher on wealth", () => {
     expect(result.get("01005")!.stats.wealth).toBeGreaterThan(result.get("01001")!.stats.wealth);
   });
-  it("assigns the top total-score county the highest rarity tier present", () => {
-    expect(result.get("01005")!.totalScore).toBeGreaterThan(result.get("01001")!.totalScore);
+  it("assigns the top total-score county the highest rarity tier", () => {
+    expect(result.get("01005")!.rarity).toBe("legendary");
+    expect(result.get("01001")!.rarity).toBe("common");
   });
 });
