@@ -14,7 +14,11 @@
     "pipeline:all": "tsx pipeline/sources/00-gazetteer.ts && tsx pipeline/sources/01-census-acs.ts && tsx pipeline/sources/02-bea-gdp.ts && tsx pipeline/sources/03-health-rankings.ts && tsx pipeline/sources/04-fema-disasters.ts && tsx pipeline/curate/select-500.ts && tsx pipeline/derive/compute-stats.ts",
     "pipeline": "tsx pipeline/launch.ts",
     "pipeline:check": "tsx pipeline/launch.ts --check",
-    "pipeline:dashboard": "tsx pipeline/dashboard/server.ts"
+    "pipeline:dashboard": "tsx pipeline/dashboard/server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build:data": "tsx pipeline/build-countle-data.ts",
+    "validate:data": "tsx pipeline/countle/validate.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.1",
@@ -36,6 +40,7 @@
     "tailwindcss": "^4.2.2",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
+    "vitest": "^2.1.9",
     "zod": "^4.3.6"
   }
 }
