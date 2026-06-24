@@ -32,7 +32,7 @@ Top Trumps' "unbeatable card" balance failure mode does **not** apply: Countle i
 2. Player has **6 guesses**. Each guess is any of the 3,144 counties (typed, with autocomplete). Obscure counties are valid *guesses* (probes) but are never the *answer*.
 3. After each guess, the player receives feedback (Section 4) and the answer's map art de-blurs one step.
 4. Win = guessing the exact county within 6 tries. Loss = 6 wrong guesses, then the answer is revealed.
-5. Win or lose, the player gets a **share grid** and updated stats/streak. Solved counties light up gold on the map.
+5. Win or lose, the player gets a **share grid** and updated stats/streak. Solved counties fill with their region color on the map (§7).
 6. Next puzzle unlocks at the daily reset.
 
 **One puzzle per day. No replay of today. No endless mode in MVP** (archive/practice is Phase 3).
@@ -43,7 +43,7 @@ Top Trumps' "unbeatable card" balance failure mode does **not** apply: Countle i
 
 - The daily answer is drawn only from **recognizable counties**, to keep the game accessible and reduce rage-quit. Obscure counties remain fully usable as guesses.
 - **Definition:** counties whose `rarity` is `epic` or `legendary` (~315 in the current data), which already encode prominence. This is the MVP definition; a hand-curated "famous list" can refine it later.
-- **Constraint:** every county in the answer pool **must have map art** (for the progressive reveal) and ideally a notable-person clue. The answer pool is therefore `(rarity ∈ {epic, legendary}) ∩ (has art PNG)`. Verifying art coverage of the pool is an implementation task (Section 9).
+- **Constraint:** every county in the answer pool **must have map art** (for the progressive reveal) and ideally a notable-person clue. The answer pool is therefore `(rarity ∈ {epic, legendary}) ∩ (has art PNG)`. Verifying art coverage of the pool is an implementation task (Section 10).
 - **Daily selection:** deterministic and shared. `index = hash(dateKey) % poolSize`, with the pool sorted by `fips` for stability. `dateKey` is the **UTC date** (`YYYY-MM-DD`) so every player worldwide gets the same county the same day (maximizes the "did you get today's?" social effect). Reusing the existing `hashString(getTodayString())` pattern from `QuizOverlay`.
 - Pool cycles without repeats until exhausted (~300 days), then reshuffles.
 
@@ -67,7 +67,7 @@ Stat labels are reframed for clarity (internal field → label): `stat_power`→
 - **Direction:** initial bearing → nearest of 8 compass arrows pointing from guess toward mystery.
 
 ### Progressive reveal
-- **Map art** starts heavily blurred (guess 1) and sharpens each guess; fully clear on solve/reveal. Blur schedule e.g. `[24, 18, 12, 8, 4, 2, 0]px`.
+- **Map art** starts heavily blurred (guess 1) and sharpens each guess; fully clear on solve/reveal. Blur schedule e.g. `[24, 18, 12, 8, 4, 2, 0]px`. In the *Bold Pop Almanac* layout (§7) this lives as a small **accent tile** that de-resolves per guess; the full-bleed art reveal is saved for the win.
 - **Notable person** unlocks as a lifeline clue at **guess 5** if available ("Named after / birthplace of …").
 
 ### Example (text)
@@ -101,8 +101,8 @@ Copy-to-clipboard (text + emoji), like Wordle. A rendered image share is a later
 ## 6. Collection & progression
 
 ### Two-layer US map (reuses `USMap`)
-- 🥇 **Solved (gold):** the daily answer, once solved, lights up gold permanently. Answer pool ≈ 300 → a year-long "collect all landmarks" Pokédex arc.
-- ✨ **Encountered (dim):** any county the player has ever typed as a guess lights faintly — fast early-progress fill and a reward for exploring with obscure probes.
+- 🎨 **Solved (region color):** the daily answer, once solved, permanently fills with its region-palette color (§7) — the US map becomes a saturated mosaic over time. Answer pool ≈ 300 → a year-long "collect all landmarks" Pokédex arc.
+- ✨ **Encountered (dim):** any county the player has ever typed as a guess lights faintly (light grey) — fast early-progress fill and a reward for exploring with obscure probes.
 - Progress readouts: `X / ~300 landmarks`, `X / 3,144 encountered`, per-state completion.
 
 ### Retention / identity layer (each = a confirmed research lever)
@@ -111,7 +111,70 @@ Copy-to-clipboard (text + emoji), like Wordle. A rendered image share is a later
 
 ---
 
-## 7. Architecture
+## 7. Visual design — "Bold Pop Almanac"
+
+**Chosen direction (owner, 2026-06-24):** bright, editorial, NYT-Games-clean *with personality* — deliberately **not** dark-gamer. The cinematic AI renders are used as a **payoff/reward**, not full-bleed wallpaper. Excitement comes from **bold color, big type, and snappy motion**, with the full-art reveal saved for the win.
+
+### Design principles
+- **Clean during play, gorgeous at the win.** The play screen is type-forward and bright; the heavy cinematic render is revealed full-size only when you solve.
+- **Color carries meaning twice:** (a) Wordle's universal green/yellow/grey for stat closeness *during play*; (b) the 8 **region palettes** (`data/.pipeline-config.json` `REGION_MAP`) as *identity* — used in the win wash and the collection map.
+- **Motion is the excitement budget.** Bars slam and numbers count up on each guess; the compass snaps to bearing; the win triggers a region-color confetti wash. Springy easing, no slow cinematic fades.
+- **Big, confident type.** Heavy geometric/grotesque display face for the wordmark + county name; tabular-figure numerals so stat numbers align and animate cleanly.
+
+### Type & color tokens
+- **Display face:** a heavy grotesque/geometric (e.g. Archivo Black / Clash Display / similar, self-hosted) — wordmark, county name, big numerals.
+- **Body/UI:** existing system sans; tabular figures for all stat numbers.
+- **Neutrals:** warm off-white background (almanac paper, not pure white); near-black ink. Bright, not dark.
+- **Feedback colors (universal, fixed):** 🟩 close · 🟨 ballpark · ⬛/grey far — never region-tinted (readability + share-grid consistency).
+- **Region palettes (identity):** the 8 `REGION_MAP` moods drive the win wash + map fill (Southwest terracotta/turquoise; Pacific emerald/Pacific-blue; New England slate-blue/amber; etc.).
+
+### Screen: the daily round (play)
+```
+┌──────────────────────────────────────┐
+│ COUNTLE             #142   🔥7   📊 ↗  │  ← wordmark · puzzle # · streak · stats/share
+│                                        │
+│  ┌────────┐  today's mystery           │  ← small accent tile: pixelated art swatch,
+│  │ ▓▒░ ?  │  guess 3 of 6              │    de-resolves one notch per guess
+│  └────────┘                            │
+│                                        │
+│  Wealth     ▮▮▮▮▮▮▮○○○   72  ↑          │  ← chunky bars · big tabular numbers
+│  Health     ▮▮▮▮▮○○○○○   48  ↓↓         │    green/yellow/grey by closeness
+│  People     ▮▮▮▮▮▮○○○○   55  ↑          │    slam-in + count-up on each guess
+│  Land       ▮▮▮○○○○○○○   24  ↓          │
+│  Danger     ▮▮▮▮▮▮▮▮○○   80  ↑↑         │
+│  Education  ▮▮▮▮▮○○○○○   49  ↓          │
+│                                        │
+│  ↗  412 mi northeast                    │  ← bold compass glyph + distance
+│  〔 name a county … 〕                    │  ← fat pill input w/ autocomplete
+│                                        │
+│  prior guesses ▸ compact stat strips    │
+└──────────────────────────────────────┘
+```
+
+### Screen: the win (the payoff)
+- The accent tile **explodes to full-bleed** — the county's cinematic render resolves to crisp.
+- The screen **floods with the county's region palette**; region-color confetti; mobile haptic thump.
+- County name in huge display type + state + county seat; one flavor line.
+- "Solved in 3! 🔥 streak 8" → Share button (emoji grid, §5).
+- **Loss variant:** same reveal, "The answer was …" in grey, streak resets.
+
+### Screen: the collection map (bright mosaic)
+- Reuses `USMap`, recolored for Bold Pop: solved counties fill with their **region color** (the US becomes a saturated patchwork over time); encountered-but-unsolved = light grey; untouched = faint paper.
+- Replaces the earlier "gold star" treatment — region-color fill is more on-brand and more satisfying as it accumulates.
+- Tap a solved county → re-open its full art card. Region-completion readouts (e.g. "Southwest 18 / 41").
+
+### Motion spec (where the "exciting" goes)
+- **Guess submit:** bars animate width + number count-up (~350 ms, spring); arrows pop; compass needle snaps.
+- **Art de-resolve:** accent tile steps down the blur schedule (§4) with a quick crossfade.
+- **Win:** tile → full-bleed scale (~500 ms) → region-color wash → confetti burst → haptic.
+- **Map open:** each newly-solved county does a single color-pop pulse.
+
+### Reuse note
+`CountyCard` is repurposed as the **win reveal** (full art + name + flavor) and the **map detail** view. `USMap` is recolored (region-fill) rather than rebuilt.
+
+---
+
+## 8. Architecture
 
 **MVP needs no database.** The entire county dataset ships as a **static bundle**; daily selection is deterministic from the date; state is localStorage. The deleted Supabase project is **off the MVP critical path** — it returns only in Phase 2.
 
@@ -183,7 +246,7 @@ No AI regeneration; no live DB for MVP.
 
 ---
 
-## 8. Scope
+## 9. Scope
 
 ### MVP (first shippable slice)
 Daily mystery county · 6 guesses · all-county autocomplete with same-name disambiguation · 6-stat + geo feedback · progressive art reveal · notable-person lifeline at guess 5 · win/lose + answer reveal · spoiler-free share grid · daily streak · Wordle-style stats modal · two-layer US map. **localStorage, anonymous, static data, no backend.**
@@ -197,7 +260,7 @@ Ship free and anonymous; grow first (the research is emphatic that gating/aggres
 
 ---
 
-## 9. Risks & open questions
+## 10. Risks & open questions
 
 1. **Difficulty calibration.** "Famous-only pool" + full 6-stat feedback may be too easy. `MAG_THRESHOLD`/`CLOSE_THRESHOLD` and which clues appear when are the tuning knobs; needs playtesting. Mitigation: tune thresholds; consider hiding magnitude (single-arrow only) if too easy.
 2. **Missing display values for Health & Education.** The prior build showed only percentile scores for these two stats (no real-world display string). The reveal and `display.health`/`display.education` need real values derived in `compute-stats.ts` (e.g., life expectancy, bachelor's-degree %). Flagged in the earlier audit too.
@@ -209,7 +272,7 @@ Ship free and anonymous; grow first (the research is emphatic that gating/aggres
 
 ---
 
-## 10. Success criteria
+## 11. Success criteria
 
 - A new visitor can play a full daily round, with zero onboarding, in under 60 seconds.
 - Solving feels like deduction over real data, not luck.
