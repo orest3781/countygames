@@ -23,16 +23,20 @@ describe("parseCensus", () => {
   const json = JSON.stringify([
     ["NAME","B01003_001E","B19013_001E","B19301_001E","B15003_022E","B15003_001E","B15003_017E","B23025_003E","B23025_005E","B25001_001E","B25003_002E","B25003_001E","B01002_001E","state","county"],
     ["Autauga County, Alabama","58805","67565","35640","9000","40000","12000","26000","1300","22000","17000","21000","38.6","01","001"],
+    ["Empty County, Alabama","1000","50000","20000","500","","","","","5000","3000","4000","40","01","003"], // empty denominators → pct null
     ["Adjuntas, PR","18000","20000","10000","1000","12000","3000","6000","400","7000","5000","6500","40","72","001"], // dropped
   ]);
   it("parses US county rows and computes pct fields", () => {
     const rows = parseCensus(json);
-    expect(rows.length).toBe(1);
-    expect(rows[0].fips).toBe("01001");
-    expect(rows[0].population).toBe(58805);
-    expect(rows[0].median_household_income).toBe(67565);
-    expect(rows[0].pct_bachelors_or_higher).toBeCloseTo(22.5); // 9000/40000*100
-    expect(rows[0].unemployment_rate).toBeCloseTo(5.0); // 1300/26000*100
+    expect(rows.length).toBe(2);
+    const autauga = rows.find((r) => r.fips === "01001")!;
+    expect(autauga.population).toBe(58805);
+    expect(autauga.median_household_income).toBe(67565);
+    expect(autauga.pct_bachelors_or_higher).toBeCloseTo(22.5); // 9000/40000*100
+    expect(autauga.unemployment_rate).toBeCloseTo(5.0); // 1300/26000*100
+    const empty = rows.find((r) => r.fips === "01003")!;
+    expect(empty.pct_bachelors_or_higher).toBeNull();
+    expect(empty.unemployment_rate).toBeNull();
   });
 });
 

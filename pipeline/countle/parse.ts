@@ -77,8 +77,8 @@ export function parseCensus(jsonText: string): CensusRow[] {
       const pop = parseInt(row[col("B01003_001E")]) || null;
       const income = parseInt(row[col("B19013_001E")]) || null;
       const bachelors = parseInt(row[col("B15003_022E")]) || 0;
-      const pop25 = parseInt(row[col("B15003_001E")]) || 1;
-      const labor = parseInt(row[col("B23025_003E")]) || 1;
+      const pop25 = parseInt(row[col("B15003_001E")]) || 0;
+      const labor = parseInt(row[col("B23025_003E")]) || 0;
       const unemp = parseInt(row[col("B23025_005E")]) || 0;
       return {
         fips,
@@ -96,7 +96,7 @@ export function parseGdp(zipBuf: Buffer): Map<string, number> {
   const entry = zip.getEntries().find((e) => e.entryName.includes("ALL_AREAS") && e.entryName.endsWith(".csv"));
   if (!entry) throw new Error("Could not find ALL_AREAS CSV in BEA zip");
   const recs = rows(entry.getData().toString("utf-8"));
-  const yearCols = Object.keys(recs[0]).filter((k) => /^\d{4}$/.test(k));
+  const yearCols = Object.keys(recs[0]).filter((k) => /^\d{4}$/.test(k)).sort();
   const latestYear = yearCols[yearCols.length - 1];
   const out = new Map<string, number>();
   for (const r of recs) {
