@@ -1,3 +1,16 @@
+/**
+ * build-countle-data.ts — assembles public/data/counties.json (Supabase-free).
+ *
+ * REBUILD PREREQUISITES (the `data/` working tree is gitignored, so a clean
+ * clone will NOT have these and the rebuild silently degrades):
+ *   - `pipeline/cache/census-cache.json` — committed; the census source (the
+ *     keyless Census API now 302s, so census is read from this cache only).
+ *   - `data/card-art/{fips}.png` — drives the `hasArt` flag (absent → all false).
+ *   - `data/enrichment.json` — flavor / notable person / county seat (absent → skipped).
+ *   - `data/fema_disasters.json` + gazetteer/BEA/health caches — auto-download on first run.
+ * The committed `public/data/counties.json` is the actual deliverable; re-run
+ * this only when the underlying data changes.
+ */
 import AdmZip from "adm-zip";
 import { downloadAndCache, downloadBuffer, REGION_MAP } from "./config";
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from "fs";
