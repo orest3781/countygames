@@ -17,6 +17,11 @@
 - **Stat key naming (canonical, used everywhere downstream):** `wealth, health, people, land, danger, education` (these map from the legacy `stat_power, stat_resilience, stat_population, stat_terrain, stat_chaos, stat_culture` respectively).
 - **Output is data only** — this plan ships no UI. Success = a valid `public/data/counties.json` + answer-pool art under `public/art/`.
 
+## Decisions (2026-06-24, from owner) — supersede earlier text where they conflict
+
+1. **Census source = committed cache, no Supabase.** The keyless Census ACS API now 302-redirects (requires a free key). The real ACS data for all 3,144 counties was recovered and is committed as `pipeline/cache/census-cache.json` (a `CensusRow[]`). The build reads ONLY this committed cache — it does NOT call the Census API or Supabase. (To refresh in future, obtain a free Census key and re-fetch; out of scope here.)
+2. **Answer pool is art-optional.** `isAnswerPool = (capitals ∪ iconic ∪ top-5-pop-per-state) ∩ allFips` — the `hasArt` gate is REMOVED, because ~100 marquee counties (LA, Houston, SF, Seattle) lack rendered art and must still be answerable. `hasArt` stays a separate per-county flag so the game shows the cinematic reveal when art exists and a region-color fallback card when it doesn't. This grows the pool from 202 → ~300.
+
 ---
 
 ## File Structure
@@ -54,7 +59,7 @@ interface CountyEntry {
   };
   rarity: Rarity;            // total-score percentile tier (art mood / flair)
   hasArt: boolean;
-  isAnswerPool: boolean;     // curated-famous ∩ hasArt
+  isAnswerPool: boolean;     // curated-famous (art-optional); hasArt is a SEPARATE flag
   notable_person: string | null;
   notable_person_desc: string | null;
   flavor: string | null;
@@ -1118,10 +1123,10 @@ describe("validatePayload", () => {
     const res = validatePayload({ schemaVersion: 1, generatedAt: "x", count: 1, answerPoolCount: 1, counties: { "06037": bad } });
     expect(res.ok).toBe(false);
   });
-  it("rejects an answer-pool county without art", () => {
-    const bad = { ...goodEntry, isAnswerPool: true, hasArt: false };
-    const res = validatePayload({ schemaVersion: 1, generatedAt: "x", count: 1, answerPoolCount: 1, counties: { "06037": bad } });
-    expect(res.ok).toBe(false);
+  it("accepts an answer-pool county without art (art is optional)", () => {
+    const ok = { ...goodEntry, isAnswerPool: true, hasArt: false };
+    const res = validatePayload({ schemaVersion: 1, generatedAt: "x", count: 1, answerPoolCount: 1, counties: { "06037": ok } });
+    expect(res.ok).toBe(true);
   });
 });
 ```
@@ -1162,9 +1167,8 @@ const CountyEntrySchema = z.object({
   notable_person: z.string().nullable(),
   notable_person_desc: z.string().nullable(),
   flavor: z.string().nullable(),
-}).refine((c) => !(c.isAnswerPool && !c.hasArt), {
-  message: "answer-pool county must have art",
 });
+// NOTE: answer pool is art-OPTIONAL (owner decision 2026-06-24) — no hasArt refinement.
 
 const PayloadSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1196,9 +1200,10 @@ if (process.argv[1] && process.argv[1].includes("validate")) {
   }
   const entries = Object.values(payload.counties as Record<string, { isAnswerPool: boolean; hasArt: boolean }>);
   const pool = entries.filter((e) => e.isAnswerPool);
+  const poolWithArt = pool.filter((e) => e.hasArt).length;
   console.log(`VALID: ${res.count} counties, ${res.answerPoolCount} answer-pool.`);
-  console.log(`  answer-pool size sanity: ${pool.length} (expect ~250-400)`);
-  if (pool.length < 200) console.warn("  ⚠ answer pool smaller than expected — check art coverage of famous counties.");
+  console.log(`  answer-pool sanity: ${pool.length} (expect ~280-340); ${poolWithArt} with art, ${pool.length - poolWithArt} use the fallback card`);
+  if (pool.length < 250) console.warn("  ⚠ answer pool smaller than expected — check the famous-county lists.");
 }
 ```
 
@@ -1259,7 +1264,7 @@ if (missing.length) console.warn(`⚠ ${missing.length} answer-pool counties mis
 - [ ] **Step 2: Run it**
 
 Run: `npx tsx pipeline/countle/copy-art.ts`
-Expected: `Copied ~3XX answer-pool art files (~XXX MB) → public/art/`. The `missing` count should be **0** (validation already guarantees answer-pool ∩ hasArt).
+Expected: `Copied ~200 answer-pool art files (~XXX MB) → public/art/`, plus a line noting `~100 answer-pool counties missing art`. The ~100 missing is **EXPECTED** now that the pool is art-optional — those counties use the in-game fallback card (not an error).
 
 - [ ] **Step 3: Ignore the bulky generated art in git, but keep the script + data**
 
@@ -1288,7 +1293,7 @@ git commit -m "feat(data): publish answer-pool art + commit generated counties.j
 - §7 Data model (`CountyEntry`, static JSON, no DB) → Tasks 6–7. **Additions:** `region`, `isAnswerPool`, `display.health`, `display.education` (the last two resolve spec Risk #2). ✓
 - §7 "Regenerating the dataset" → the whole plan; Supabase fully removed from the path. ✓
 - §10 Risk #2 (missing health/education display) → `formatLifeExpectancy` / `formatEducation` (Task 2). ✓
-- §10 Risk #3 (art coverage of pool) → answer pool is `∩ hasArt` (Task 4) + Task 8 reports missing. ✓
+- §10 Risk #3 (art coverage of pool) → pool is art-OPTIONAL (owner decision); ~100 famous counties lack art and use a fallback card; Task 8 reports the gap. ✓
 - §10 Risk #4 (bundle size) → noted; one-file MVP, split deferred to Plan 2. ✓
 
 **Placeholder scan:** none — every code/test step is complete. (The orchestrator's lat/lng two-pass and the gazetteer unzip IIFE are real, working code with a noted cleaner alternative.)
