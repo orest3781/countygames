@@ -57,8 +57,27 @@ describe("shareRow", () => {
       withStats({ wealth: 50, health: 70, people: 90, land: 50, danger: 50, education: 50 })
     );
     // wealth Δ0 close→🟩, health Δ20 near→🟨, people Δ40 far→⬛
-    expect(shareRow(fb).startsWith("🟩🟨⬛")).toBe(true);
+    expect(shareRow(fb)).toBe("🟩🟨⬛🟩🟩🟩");
     expect([...shareRow(fb)].length).toBe(6);
+  });
+});
+
+describe("compareStats threshold boundaries", () => {
+  const base = { wealth: 50, health: 50, people: 50, land: 50, danger: 50, education: 50 };
+  it("|delta| exactly 8 → close, single arrow", () => {
+    const fb = compareStats(withStats({ ...base, wealth: 58 }), withStats(base));
+    expect(fb[0].closeness).toBe("close"); // |8| ≤ 8
+    expect(fb[0].magnitude).toBe(1);
+  });
+  it("|delta| exactly 33 → near, single arrow (not far, not double)", () => {
+    const fb = compareStats(withStats({ ...base, wealth: 83 }), withStats(base));
+    expect(fb[0].closeness).toBe("near"); // 8 < 33 ≤ 33
+    expect(fb[0].magnitude).toBe(1);      // 33 is NOT > 33
+  });
+  it("|delta| exactly 34 → far, double arrow", () => {
+    const fb = compareStats(withStats({ ...base, wealth: 84 }), withStats(base));
+    expect(fb[0].closeness).toBe("far");
+    expect(fb[0].magnitude).toBe(2);
   });
 });
 
