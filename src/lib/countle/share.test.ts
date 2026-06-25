@@ -7,8 +7,8 @@ describe("buildShareText", () => {
     const out = buildShareText({ puzzleNumber: 247, solved: true, guessCount: 2, streak: 12, rows });
     expect(out).toBe(["Countle #247  2/6  🔥12", "🟨⬛⬛🟩🟨⬛", "🟩🟩🟩🟩🟩🟩", "countle.app"].join("\n"));
   });
-  it("failed: score is X/6", () => {
+  it("failed: score is X/6 and full grid + footer still render", () => {
     const out = buildShareText({ puzzleNumber: 247, solved: false, guessCount: 6, streak: 0, rows });
-    expect(out.split("\n")[0]).toBe("Countle #247  X/6  🔥0");
+    expect(out).toBe(["Countle #247  X/6  🔥0", "🟨⬛⬛🟩🟨⬛", "🟩🟩🟩🟩🟩🟩", "countle.app"].join("\n"));
   });
 });

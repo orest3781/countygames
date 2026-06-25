@@ -10,7 +10,7 @@ export function initialState(): CountleState {
     streak: 0,
     maxStreak: 0,
     gamesPlayed: 0,
-    guessDistribution: [0, 0, 0, 0, 0, 0],
+    guessDistribution: Array(GUESS_LIMIT).fill(0),
     fails: 0,
     solvedCounties: [],
     encounteredCounties: [],
