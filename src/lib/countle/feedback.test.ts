@@ -105,6 +105,9 @@ describe("evaluateGuess", () => {
     expect(r.isCorrect).toBe(true);
     expect(r.distanceMiles).toBe(0);
     expect(r.shareRow).toBe("🟩🟩🟩🟩🟩🟩");
+    expect(r.bearingDeg).toBe(0);
+    expect(r.compass).toEqual({ arrow: "🎯", label: "here" });
+    expect(r.guess.fips).toBe(mystery.fips);
   });
 
   it("wrong guess: not correct, positive distance, compass label set", () => {

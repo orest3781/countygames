@@ -34,7 +34,7 @@ export function evaluateGuess(mystery: CountyEntry, guess: CountyEntry): GuessRe
   const isCorrect = guess.fips === mystery.fips;
   const stats = compareStats(mystery, guess);
   const distanceMiles = isCorrect ? 0 : Math.round(haversineMiles(guess, mystery));
-  const bearing = isCorrect ? 0 : bearingDeg(guess, mystery);
-  const compass = isCorrect ? { arrow: "🎯", label: "here" } : compass8(bearing);
-  return { guess, isCorrect, stats, distanceMiles, bearingDeg: bearing, compass, shareRow: shareRow(stats) };
+  const bearingValue = isCorrect ? 0 : bearingDeg(guess, mystery);
+  const compass = isCorrect ? { arrow: "🎯", label: "here" } : compass8(bearingValue);
+  return { guess, isCorrect, stats, distanceMiles, bearingDeg: bearingValue, compass, shareRow: shareRow(stats) };
 }
