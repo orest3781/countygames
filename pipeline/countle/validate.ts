@@ -4,7 +4,7 @@ import { join } from "path";
 
 const stat = z.number().int().min(1).max(100);
 
-const CountyEntrySchema = z.object({
+export const CountyEntrySchema = z.object({
   fips: z.string().length(5),
   name: z.string().min(1),
   state_abbr: z.string().length(2),
@@ -27,13 +27,20 @@ const CountyEntrySchema = z.object({
 });
 // NOTE: answer pool is art-OPTIONAL (owner decision 2026-06-24) — no hasArt refinement.
 
-const PayloadSchema = z.object({
+export const PayloadSchema = z.object({
   schemaVersion: z.literal(1),
   generatedAt: z.string(),
   count: z.number(),
   answerPoolCount: z.number(),
   counties: z.record(z.string(), CountyEntrySchema),
-});
+})
+  .refine((p) => p.count === Object.keys(p.counties).length, {
+    message: "count must equal the number of counties",
+  })
+  .refine(
+    (p) => p.answerPoolCount === Object.values(p.counties).filter((c) => c.isAnswerPool).length,
+    { message: "answerPoolCount must equal the number of isAnswerPool counties" }
+  );
 
 export function validatePayload(
   payload: unknown

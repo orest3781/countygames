@@ -25,4 +25,8 @@ describe("validatePayload", () => {
     const res = validatePayload({ schemaVersion: 1, generatedAt: "x", count: 1, answerPoolCount: 1, counties: { "06037": ok } });
     expect(res.ok).toBe(true);
   });
+  it("rejects a payload whose count disagrees with the counties map", () => {
+    const res = validatePayload({ schemaVersion: 1, generatedAt: "x", count: 99, answerPoolCount: 1, counties: { "06037": goodEntry } });
+    expect(res.ok).toBe(false);
+  });
 });
