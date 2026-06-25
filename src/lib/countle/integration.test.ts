@@ -13,6 +13,7 @@ describe("real dataset", () => {
   it("has 3,144 counties and a 271-county answer pool", () => {
     expect(ds.all.length).toBe(3144);
     expect(ds.answerPoolFips.length).toBe(271);
+    expect(ds.byFips.size).toBe(3144); // no duplicate fips keys
   });
   it("daily selection is deterministic and always an answer-pool county", () => {
     const a = getDailyCounty(ds, "2026-06-25");
@@ -29,12 +30,14 @@ describe("real dataset", () => {
   it("guessing LA (06037) against Cook (17031) yields a westbound-or-eastbound real distance", () => {
     const la = ds.byFips.get("06037")!;
     const cook = ds.byFips.get("17031")!;
+    expect(la).toBeDefined();
+    expect(cook).toBeDefined();
     const r = evaluateGuess(la, cook);
     expect(r.isCorrect).toBe(false);
     expect(r.distanceMiles).toBeGreaterThan(1500);
     expect(r.stats).toHaveLength(6);
   });
-  it("today's puzzle number is positive", () => {
+  it("puzzle number is 1 on the epoch date (2026-06-25)", () => {
     expect(puzzleNumber(dateKeyUTC(new Date("2026-06-25T12:00:00Z")))).toBe(1);
   });
 });
