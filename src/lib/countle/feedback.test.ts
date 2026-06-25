@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compareStats, shareRow, blurForGuess } from "./feedback";
+import { compareStats, shareRow, blurForGuess, evaluateGuess } from "./feedback";
 import type { CountyEntry, StatKey } from "./types";
 
 function withStats(s: Record<StatKey, number>): CountyEntry {
@@ -87,5 +87,32 @@ describe("blurForGuess", () => {
     expect(blurForGuess(3)).toBe(8);
     expect(blurForGuess(6)).toBe(0);
     expect(blurForGuess(99)).toBe(0);
+  });
+});
+
+function county(fips: string, lat: number, lng: number, stats: Record<StatKey, number>): CountyEntry {
+  return { fips, name: fips, state_abbr: "XX", state_name: "X", region: "Midwest", county_seat: null, lat, lng,
+    stats, display: { wealth: "", health: "", people: "", land: "", danger: "", education: "" },
+    rarity: "common", hasArt: false, isAnswerPool: true, notable_person: null, notable_person_desc: null, flavor: null };
+}
+
+describe("evaluateGuess", () => {
+  const even = { wealth: 50, health: 50, people: 50, land: 50, danger: 50, education: 50 };
+  const mystery = county("06037", 34.05, -118.24, even);
+
+  it("correct guess: isCorrect, distance 0, all-green row", () => {
+    const r = evaluateGuess(mystery, mystery);
+    expect(r.isCorrect).toBe(true);
+    expect(r.distanceMiles).toBe(0);
+    expect(r.shareRow).toBe("🟩🟩🟩🟩🟩🟩");
+  });
+
+  it("wrong guess: not correct, positive distance, compass label set", () => {
+    const guess = county("36061", 40.71, -74.0, even); // NYC-ish
+    const r = evaluateGuess(mystery, guess);
+    expect(r.isCorrect).toBe(false);
+    expect(r.distanceMiles).toBeGreaterThan(2000);
+    expect(r.compass.label).toBe("west"); // mystery (LA) is west of NYC
+    expect(r.stats.length).toBe(6);
   });
 });
