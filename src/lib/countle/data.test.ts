@@ -39,9 +39,17 @@ describe("searchCounties", () => {
   it("returns empty for blank query", () => {
     expect(searchCounties(ds, "  ")).toEqual([]);
   });
-  it("matches by name, case-insensitive, prefix ranked first", () => {
-    const r = searchCounties(ds, "los angeles");
-    expect(r[0].fips).toBe("06037");
+  it("matches by name, case-insensitive, prefix ranked ahead of substring", () => {
+    const ds2 = buildDataset({
+      schemaVersion: 1, generatedAt: "x", count: 2, answerPoolCount: 1,
+      counties: {
+        "06037": county("06037", "Los Angeles County", "CA", 100, true),
+        "06038": county("06038", "East Los Angeles Township", "CA", 200),
+      },
+    });
+    const r = searchCounties(ds2, "los angeles");
+    expect(r.length).toBeGreaterThan(1);
+    expect(r[0].fips).toBe("06037"); // prefix beats substring even though East LA has higher population
   });
   it("returns all same-name counties, disambiguable by state", () => {
     const r = searchCounties(ds, "washington");

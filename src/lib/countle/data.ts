@@ -29,7 +29,7 @@ export function searchCounties(dataset: Dataset, query: string, limit = 8): Coun
     (a, b) =>
       a.score - b.score ||
       b.c.stats.people - a.c.stats.people || // bigger places first
-      a.c.name.localeCompare(b.c.name) ||
+      a.c.name.localeCompare(b.c.name, "en-US") ||
       a.c.fips.localeCompare(b.c.fips)
   );
   return scored.slice(0, limit).map((s) => s.c);
