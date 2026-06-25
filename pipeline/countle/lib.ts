@@ -166,13 +166,14 @@ export function topNPopulousPerState(populationByFips: Map<string, number>, n: n
 }
 
 /**
- * The Countle daily answer pool: genuinely recognizable counties that also
- * have art. Famous = state capitals ∪ iconic ∪ top-5-most-populous-per-state.
+ * The Countle daily answer pool: recognizable counties (state capitals ∪
+ * iconic ∪ top-5-most-populous-per-state) that exist in the dataset.
+ * ART-OPTIONAL — counties without art use an in-game fallback card, so art
+ * is NOT a gate here. `hasArt` is tracked separately per county.
  */
 export function buildAnswerPool(opts: {
   allFips: string[];
   populationByFips: Map<string, number>;
-  hasArt: (fips: string) => boolean;
 }): Set<string> {
   const famous = new Set<string>([
     ...STATE_CAPITAL_FIPS,
@@ -182,7 +183,7 @@ export function buildAnswerPool(opts: {
   const allSet = new Set(opts.allFips);
   const pool = new Set<string>();
   for (const fips of famous) {
-    if (allSet.has(fips) && opts.hasArt(fips)) pool.add(fips);
+    if (allSet.has(fips)) pool.add(fips);
   }
   return pool;
 }

@@ -120,32 +120,20 @@ describe("answer pool", () => {
     expect(top2.has("02001")).toBe(true); // only AK
   });
 
-  it("buildAnswerPool = (capitals ∪ iconic ∪ top5pop) ∩ hasArt", () => {
-    const pop = new Map<string, number>([["04013", 4_000_000]]); // Maricopa (iconic + capital)
-    const pool = buildAnswerPool({
-      allFips: ["04013", "01001"],
-      populationByFips: pop,
-      hasArt: (f) => f === "04013", // 01001 has no art
-    });
-    expect(pool.has("04013")).toBe(true);
-    expect(pool.has("01001")).toBe(false); // not famous + no art
+  it("buildAnswerPool = (capitals ∪ iconic ∪ top5pop) ∩ allFips", () => {
+    const pop = new Map<string, number>([["04013", 4_000_000]]); // Maricopa (capital+iconic)
+    const pool = buildAnswerPool({ allFips: ["04013", "01001"], populationByFips: pop });
+    expect(pool.has("04013")).toBe(true);  // famous
+    expect(pool.has("01001")).toBe(false); // not famous
   });
 
-  it("excludes a famous county that lacks art", () => {
-    const pool = buildAnswerPool({
-      allFips: ["36061"], // Manhattan (iconic)
-      populationByFips: new Map(),
-      hasArt: () => false,
-    });
-    expect(pool.has("36061")).toBe(false);
+  it("includes a famous county regardless of art availability", () => {
+    const pool = buildAnswerPool({ allFips: ["36061"], populationByFips: new Map() }); // Manhattan, art-optional
+    expect(pool.has("36061")).toBe(true);
   });
 
-  it("excludes a famous county with art that is absent from allFips", () => {
-    const pool = buildAnswerPool({
-      allFips: [], // 04013 is a capital+iconic county and has art, but is not in allFips
-      populationByFips: new Map([["04013", 4_000_000]]),
-      hasArt: () => true,
-    });
+  it("excludes a famous county absent from allFips", () => {
+    const pool = buildAnswerPool({ allFips: [], populationByFips: new Map([["04013", 4_000_000]]) });
     expect(pool.has("04013")).toBe(false);
   });
 });

@@ -1,10 +1,9 @@
 import AdmZip from "adm-zip";
-import { downloadAndCache, downloadBuffer, REGION_MAP, supabase } from "./config";
+import { downloadAndCache, downloadBuffer, REGION_MAP } from "./config";
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import {
   parseGazetteer,
-  parseCensus,
   parseGdp,
   parseHealth,
   parseFema,
@@ -22,8 +21,6 @@ import {
   type RawCounty,
 } from "./countle/lib";
 
-const CENSUS_URL =
-  "https://api.census.gov/data/2022/acs/acs5?get=NAME,B01003_001E,B19013_001E,B19301_001E,B15003_022E,B15003_001E,B15003_017E,B23025_003E,B23025_005E,B25001_001E,B25003_002E,B25003_001E,B01002_001E&for=county:*&in=state:*";
 const GAZETTEER_URL =
   "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2024_Gazetteer/2024_Gaz_counties_national.zip";
 const BEA_URL = "https://apps.bea.gov/regional/zip/CAGDP1.zip";
@@ -33,9 +30,7 @@ const FEMA_URL =
   "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries?$select=fipsStateCode,fipsCountyCode,incidentType,fyDeclared,declarationType&$top=1000";
 
 const DATA_DIR = join(process.cwd(), "data");
-const CENSUS_CACHE = join(DATA_DIR, "census_acs.json");
-// Secondary cache: Supabase-sourced rows (never touches Census API)
-const CENSUS_SUPABASE_CACHE = join(DATA_DIR, "census_supabase.json");
+const CENSUS_CACHE = join(process.cwd(), "pipeline", "cache", "census-cache.json");
 
 interface EnrichmentEntry {
   flavor: string | null;
@@ -53,59 +48,17 @@ function unzipTxt(buf: Buffer): string {
 }
 
 /**
- * Return census rows — tries the Census API cache first, then falls back to
- * fetching from the Supabase raw_census table (which was populated by
- * pipeline/sources/01-census-acs.ts) and writing a local cache.
- *
- * NOTE: The Census Bureau API now requires a free API key for all requests.
- * Since no CENSUS_API_KEY is present in .env.local, we fall back to the
- * Supabase raw_census table which was populated by the existing pipeline.
+ * Load census rows from the committed static cache. The keyless Census API is
+ * no longer available (it now requires a free API key), so the recovered
+ * CensusRow[] is committed to pipeline/cache/census-cache.json and read here.
  */
-async function fetchCensusRows(): Promise<CensusRow[]> {
-  // Try the standard Census API cache (valid JSON, not HTML).
-  if (existsSync(CENSUS_CACHE)) {
-    const text = readFileSync(CENSUS_CACHE, "utf-8");
-    if (text.trimStart().startsWith("[")) {
-      console.log("  [cache hit] census_acs.json");
-      return parseCensus(text);
-    }
-    console.log("  [census_acs.json] invalid (Census API returned HTML — key required)");
+function loadCensusRows(): CensusRow[] {
+  if (!existsSync(CENSUS_CACHE)) {
+    throw new Error(
+      `Missing ${CENSUS_CACHE}. The keyless Census API is unavailable; commit the recovered census cache (CensusRow[]) to this path.`
+    );
   }
-
-  // Try local Supabase-sourced cache.
-  if (existsSync(CENSUS_SUPABASE_CACHE)) {
-    console.log("  [cache hit] census_supabase.json");
-    return JSON.parse(readFileSync(CENSUS_SUPABASE_CACHE, "utf-8")) as CensusRow[];
-  }
-
-  // Fetch from Supabase raw_census (already populated by pipeline stage 01).
-  console.log("  [census] Census API requires key — reading from Supabase raw_census");
-  const PAGE = 1000;
-  const rows: CensusRow[] = [];
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from("raw_census")
-      .select("fips,population,median_household_income,pct_bachelors_or_higher,unemployment_rate")
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(`Supabase raw_census: ${error.message}`);
-    if (!data || data.length === 0) break;
-    for (const r of data) {
-      rows.push({
-        fips: r.fips as string,
-        population: (r.population as number) ?? null,
-        median_household_income: (r.median_household_income as number) ?? null,
-        pct_bachelors_or_higher: (r.pct_bachelors_or_higher as number) ?? null,
-        unemployment_rate: (r.unemployment_rate as number) ?? null,
-      });
-    }
-    console.log(`  [census/supabase] ${rows.length} rows`);
-    if (data.length < PAGE) break;
-    from += PAGE;
-  }
-  writeFileSync(CENSUS_SUPABASE_CACHE, JSON.stringify(rows));
-  console.log(`  [census] cached ${rows.length} rows → census_supabase.json`);
-  return rows;
+  return JSON.parse(readFileSync(CENSUS_CACHE, "utf-8")) as CensusRow[];
 }
 
 async function fetchFema(): Promise<
@@ -145,7 +98,7 @@ async function main() {
   const gazBuf = await downloadBuffer(GAZETTEER_URL, "gazetteer_counties.zip");
   const gaz = parseGazetteer(unzipTxt(gazBuf));
 
-  const census = await fetchCensusRows();
+  const census = loadCensusRows();
   const gdp = parseGdp(await downloadBuffer(BEA_URL, "CAGDP1.zip"));
   const health = parseHealth(
     await downloadAndCache(HEALTH_URL, "health_rankings_2024.csv")
@@ -200,7 +153,6 @@ async function main() {
   const answerPool = buildAnswerPool({
     allFips: merged.map((m) => m.fips),
     populationByFips,
-    hasArt,
   });
 
   // 7. Enrichment (surviving local file).
