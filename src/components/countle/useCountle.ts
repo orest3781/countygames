@@ -48,5 +48,5 @@ export function useCountle() {
     [dataset, state]
   );
 
-  return { status, session, guess, lastError, dataset };
+  return { status, session, guess, lastError, dataset, state };
 }
