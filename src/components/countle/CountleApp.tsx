@@ -6,6 +6,7 @@ import StatBoard from "./StatBoard";
 import CompassReadout from "./CompassReadout";
 import GuessInput from "./GuessInput";
 import GuessHistory from "./GuessHistory";
+import WinReveal from "./WinReveal";
 import { INK } from "./theme";
 
 export default function CountleApp() {
@@ -49,6 +50,8 @@ export default function CountleApp() {
       )}
 
       <GuessHistory results={session.guessResults} />
+
+      {session.finished && <WinReveal session={session} />}
     </main>
   );
 }
