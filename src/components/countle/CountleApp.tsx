@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { useCountle } from "./useCountle";
 import Header from "./Header";
 import MysteryTile from "./MysteryTile";
@@ -7,10 +8,14 @@ import CompassReadout from "./CompassReadout";
 import GuessInput from "./GuessInput";
 import GuessHistory from "./GuessHistory";
 import WinReveal from "./WinReveal";
+import Overlay from "./Overlay";
+import CountyMap from "./CountyMap";
+import StatsModal from "./StatsModal";
 import { INK } from "./theme";
 
 export default function CountleApp() {
-  const { status, session, guess, dataset } = useCountle();
+  const { status, session, guess, dataset, state } = useCountle();
+  const [overlay, setOverlay] = useState<null | "stats" | "map">(null);
 
   if (status !== "ready" || !session) {
     return (
@@ -25,7 +30,8 @@ export default function CountleApp() {
   const { mystery } = session;
   return (
     <main style={{ maxWidth: 560, margin: "0 auto", padding: "28px 18px 80px" }}>
-      <Header puzzleNumber={session.puzzleNumber} streak={session.streak} guessesLeft={session.guessesLeft} />
+      <Header puzzleNumber={session.puzzleNumber} streak={session.streak} guessesLeft={session.guessesLeft}
+        onOpenStats={() => setOverlay("stats")} onOpenMap={() => setOverlay("map")} />
 
       <div style={{ display: "flex", gap: 16, alignItems: "center", margin: "22px 0 18px" }}>
         <MysteryTile mystery={mystery} blur={session.blur} finished={session.finished} />
@@ -52,6 +58,13 @@ export default function CountleApp() {
       <GuessHistory results={session.guessResults} />
 
       {session.finished && <WinReveal session={session} />}
+
+      {overlay === "stats" && state && (
+        <Overlay onClose={() => setOverlay(null)}><StatsModal state={state} /></Overlay>
+      )}
+      {overlay === "map" && dataset && state && (
+        <Overlay wide onClose={() => setOverlay(null)}><CountyMap dataset={dataset} state={state} /></Overlay>
+      )}
     </main>
   );
 }
