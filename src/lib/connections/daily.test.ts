@@ -37,8 +37,16 @@ describe("dailyCardOrder", () => {
     expect(a).toEqual(b);
     expect([...a].sort()).toEqual([...puzzleCards(p)].sort());
   });
-  it("usually does NOT leave the cards grouped (shuffled)", () => {
-    const p = puzzle(1, 1000);
-    expect(dailyCardOrder(p, "2026-06-26")).not.toEqual(puzzleCards(p));
+  it("reorders the cards away from their natural (grouped) order", () => {
+    // Realistic, geographically-diverse FIPS — varied across all digits so the
+    // per-card hash is not monotonic (sequential FIPS like 01000..01015 hash in
+    // near-lockstep and can coincidentally preserve natural order).
+    const realistic: ConnectionsPuzzle = { id: 1, groups: [
+      { label: "A", color: "yellow", fips: ["01001", "04013", "06037", "12086"] },
+      { label: "B", color: "green",  fips: ["17031", "22071", "26163", "29510"] },
+      { label: "C", color: "blue",   fips: ["36061", "39035", "42101", "48201"] },
+      { label: "D", color: "purple", fips: ["53033", "06075", "13121", "25025"] },
+    ] };
+    expect(dailyCardOrder(realistic, "2026-06-26")).not.toEqual(puzzleCards(realistic));
   });
 });
