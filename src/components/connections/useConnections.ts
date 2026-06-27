@@ -81,6 +81,10 @@ export function useConnections() {
     setState(r.state);
     saveConnectionsState(window.localStorage, r.state);
     if (r.result.kind === "correct") {
+      // INVARIANT: solved fips are removed from displayOrder in the SAME tick `state`
+      // updates, so `view.remainingFips` and `displayOrder` never diverge and a solved
+      // card can't linger in the grid (which would make ConnectionsApp's labelOf fall
+      // back to the raw fips). Any future "solve" path must preserve this co-update.
       const solved = new Set(fips4);
       setDisplayOrder((cur) => cur.filter((f) => !solved.has(f)));
     }
