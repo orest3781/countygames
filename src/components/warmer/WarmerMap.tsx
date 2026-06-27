@@ -48,7 +48,7 @@ export default function WarmerMap({ guesses, closestFips }: { guesses: GuessFeed
       <g>{rendered.paths}</g>
       <path d={rendered.statesMesh} fill="none" stroke="#fffaf0" strokeWidth={0.8} strokeLinejoin="round" />
       {rendered.closestMark && (
-        <circle cx={String(rendered.closestMark.cx)} cy={String(rendered.closestMark.cy)} r={5} fill="none" stroke="#241d12" strokeWidth={1.6} />
+        <circle cx={rendered.closestMark.cx} cy={rendered.closestMark.cy} r={5} fill="none" stroke="#241d12" strokeWidth={1.6} />
       )}
     </svg>
   );
