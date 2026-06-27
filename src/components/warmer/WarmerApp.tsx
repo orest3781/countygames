@@ -10,6 +10,7 @@ import { TIER_HEX } from "./theme";
 import GuessInput from "@/components/countle/GuessInput";
 import Overlay from "@/components/countle/Overlay";
 import { INK } from "@/components/countle/theme";
+import HubLink from "@/components/hub/HubLink";
 
 const SUFFIX = / (County|Parish|Borough|Census Area|Municipality|City and Borough|city)$/i;
 
@@ -34,6 +35,7 @@ export default function WarmerApp() {
 
   return (
     <main style={{ maxWidth: 680, margin: "0 auto", padding: "28px 18px 80px" }}>
+      <HubLink />
       <Header puzzleNumber={session.puzzleNumber} streak={session.streak} guessCount={session.guessCount} onOpenStats={() => setOverlay("stats")} />
       <p style={{ color: "#7c715c", fontSize: 14, margin: "10px 0 14px" }}>
         Name any county — it lights up hot or cold. Find today&apos;s mystery county.

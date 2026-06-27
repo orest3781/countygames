@@ -12,6 +12,7 @@ import Overlay from "./Overlay";
 import CountyMap from "./CountyMap";
 import StatsModal from "./StatsModal";
 import { INK } from "./theme";
+import HubLink from "@/components/hub/HubLink";
 
 export default function CountleApp() {
   const { status, session, guess, dataset, state } = useCountle();
@@ -30,6 +31,7 @@ export default function CountleApp() {
   const { mystery } = session;
   return (
     <main style={{ maxWidth: 560, margin: "0 auto", padding: "28px 18px 80px" }}>
+      <HubLink />
       <Header puzzleNumber={session.puzzleNumber} streak={session.streak} guessesLeft={session.guessesLeft}
         onOpenStats={() => setOverlay("stats")} onOpenMap={() => setOverlay("map")} />
 

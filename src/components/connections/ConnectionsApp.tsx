@@ -9,6 +9,7 @@ import StatsModal from "./StatsModal";
 import Overlay from "@/components/countle/Overlay";
 import { INK } from "@/components/countle/theme";
 import { loadConnectionsState } from "@/lib/connections";
+import HubLink from "@/components/hub/HubLink";
 
 export default function ConnectionsApp() {
   const { status, view, selected, displayOrder, toggle, submit, shuffle, deselectAll } = useConnections();
@@ -39,6 +40,7 @@ export default function ConnectionsApp() {
 
   return (
     <main style={{ maxWidth: 520, margin: "0 auto", padding: "28px 18px 80px" }}>
+      <HubLink />
       <Header puzzleNumber={view.puzzleNumber} streak={view.streak} onOpenStats={() => setOverlay("stats")} />
       <p style={{ color: "#7c715c", fontSize: 14, margin: "10px 0 18px" }}>
         Create four groups of four counties.
