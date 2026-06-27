@@ -42,4 +42,10 @@ describe("trapScore", () => {
     // clean → 0 traps.
     expect(trapScore(cards, preds([["a", "b", "c", "d"], ["e", "f", "g", "h"], ["i", "j", "k", "l"], ["m", "n", "o", "p"]]))).toBe(0);
   });
+  it("returns 0 for a perfectly disjoint partition (each card satisfies exactly one predicate)", () => {
+    // 16 fips "00".."15"; predicate k matches fips where Number(fips) % 4 === k — mutually exclusive.
+    const cards = Array.from({ length: 16 }, (_, i) => String(i).padStart(2, "0"));
+    const disjointPreds = [0, 1, 2, 3].map((k) => (fips: string) => Number(fips) % 4 === k);
+    expect(trapScore(cards, disjointPreds)).toBe(0);
+  });
 });

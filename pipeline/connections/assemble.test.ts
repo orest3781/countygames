@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mulberry32, assemblePuzzles } from "./assemble";
+import { mulberry32, assemblePuzzles, regionOfState } from "./assemble";
 import { validateConnections } from "../../src/lib/connections/validate";
 import type { CandidateGroup } from "./families";
 import type { CountyEntry, StatKey } from "../../src/lib/countle/types";
@@ -51,6 +51,39 @@ for (let i = 0; i < 5; i++) {
 for (let i = 0; i < 5; i++) {
   byFips.get(fipsOf("60", 6 * 10 + i))!.state_abbr = "N1";
 }
+
+describe("regionOfState", () => {
+  it("returns the region of the first member of a sameState group", () => {
+    const c1 = county("01001", "TX", "Southwest");
+    const c2 = county("01002", "TX", "Southwest");
+    const localByFips = new Map<string, CountyEntry>([["01001", c1], ["01002", c2]]);
+    const stateGroup: CandidateGroup = {
+      family: "sameState", key: "state:TX", label: "Texas", members: ["01001", "01002"],
+      predicate: (c) => c.state_abbr === "TX",
+    };
+    const regionGroup: CandidateGroup = {
+      family: "sameRegion", key: "region:Southwest", label: "Southwest counties", members: ["01001"],
+      predicate: (c) => c.region === "Southwest",
+    };
+    expect(regionOfState([stateGroup, regionGroup], "state:TX", localByFips)).toBe("Southwest");
+  });
+  it("returns null when the state key is not present in groups", () => {
+    const localByFips = new Map<string, CountyEntry>();
+    const regionGroup: CandidateGroup = {
+      family: "sameRegion", key: "region:Pacific", label: "Pacific", members: [],
+      predicate: () => false,
+    };
+    expect(regionOfState([regionGroup], "state:CA", localByFips)).toBeNull();
+  });
+  it("returns null when the matching group has no members", () => {
+    const localByFips = new Map<string, CountyEntry>();
+    const emptyGroup: CandidateGroup = {
+      family: "sameState", key: "state:WY", label: "Wyoming", members: [],
+      predicate: () => false,
+    };
+    expect(regionOfState([emptyGroup], "state:WY", localByFips)).toBeNull();
+  });
+});
 
 describe("mulberry32", () => {
   it("is deterministic", () => {

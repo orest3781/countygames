@@ -11,7 +11,7 @@ export interface CandidateGroup {
 }
 
 export function bareName(name: string): string {
-  return name.replace(/ (County|Parish|Borough|Census Area|Municipality|City and Borough|city|City)$/i, "").trim();
+  return name.replace(/ (County|Parish|Borough|Census Area|Municipality|City and Borough|city)$/i, "").trim();
 }
 
 /** US president surnames that appear as county names. */
@@ -24,8 +24,6 @@ export const PRESIDENTS = new Set<string>([
 
 export function buildCandidateGroups(famous: CountyEntry[], capitalFips: Set<string>): CandidateGroup[] {
   const groups: CandidateGroup[] = [];
-  const byFips = new Map(famous.map((c) => [c.fips, c]));
-
   // sameState — one group per state with >=4 famous counties.
   const byState = new Map<string, CountyEntry[]>();
   for (const c of famous) (byState.get(c.state_abbr) ?? byState.set(c.state_abbr, []).get(c.state_abbr)!).push(c);
@@ -82,6 +80,5 @@ export function buildCandidateGroups(famous: CountyEntry[], capitalFips: Set<str
     });
   }
 
-  void byFips; // reserved for future families
   return groups;
 }

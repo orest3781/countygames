@@ -61,3 +61,29 @@ describe("buildCandidateGroups", () => {
     expect(groups.find((g) => g.key === "state:AA")).toBeUndefined();
   });
 });
+
+describe("buildCandidateGroups — presidentName", () => {
+  // 5 president-named counties across distinct states/fips, plus one non-president county.
+  const presidentCounties: CountyEntry[] = [
+    county("01001", "Washington County", "VA", "Virginia", "South"),
+    county("02001", "Jefferson County", "CO", "Colorado", "Mountain"),
+    county("03001", "Lincoln County", "NM", "New Mexico", "Southwest"),
+    county("04001", "Madison County", "NY", "New York", "Northeast"),
+    county("05001", "Monroe County", "MI", "Michigan", "Midwest"),
+    county("06001", "Greene County",  "OH", "Ohio",     "Midwest"), // not a president
+  ];
+
+  const groups = buildCandidateGroups(presidentCounties, new Set());
+
+  it("emits a presidentName group when >=4 famous counties have president surnames", () => {
+    const pg = groups.find((g) => g.family === "presidentName");
+    expect(pg).toBeDefined();
+    expect(pg!.members.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("presidentName predicate returns true for a president-named county and false for a non-president one", () => {
+    const pg = groups.find((g) => g.family === "presidentName")!;
+    expect(pg.predicate(presidentCounties[0])).toBe(true);  // Washington County → true
+    expect(pg.predicate(presidentCounties[5])).toBe(false); // Greene County → false
+  });
+});

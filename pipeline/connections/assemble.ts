@@ -11,7 +11,6 @@ export function mulberry32(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-function pick<T>(rng: () => number, arr: T[]): T { return arr[Math.floor(rng() * arr.length)]; }
 function sample<T>(rng: () => number, arr: T[], n: number): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
@@ -22,7 +21,7 @@ function sample<T>(rng: () => number, arr: T[], n: number): T[] {
 const FAMILY_RANK: Record<string, number> = { sameState: 0, sameRegion: 1, stateCapital: 2, presidentName: 3, sharedName: 4 };
 
 /** A state and that state's own region are co-extensive — never use both. */
-function regionOfState(groups: CandidateGroup[], stateKey: string, byFips: Map<string, CountyEntry>): string | null {
+export function regionOfState(groups: CandidateGroup[], stateKey: string, byFips: Map<string, CountyEntry>): string | null {
   const g = groups.find((x) => x.key === stateKey);
   if (!g || g.members.length === 0) return null;
   return byFips.get(g.members[0])!.region;
