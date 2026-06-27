@@ -48,7 +48,7 @@ export default function GameCard({ g }: { g: GameStatus }) {
         <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 14 }}>
           <span title="streak">🔥 {g.streak}</span>
           <span style={{ marginLeft: "auto", fontWeight: 800, color: g.status === "done" ? "#15803d" : g.accent }}>
-            {g.status === "done" ? `✓ ${g.resultLabel}` : CTA[g.status]}
+            {g.status === "done" ? `✓ ${g.resultLabel ?? ""}` : CTA[g.status]}
           </span>
         </div>
       </div>
