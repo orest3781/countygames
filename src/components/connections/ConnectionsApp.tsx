@@ -44,20 +44,22 @@ export default function ConnectionsApp() {
         Create four groups of four counties.
       </p>
 
-      <div style={{ position: "relative" }}>
-        {flash && (
-          <div className="animate-fade-in" style={{
-            position: "absolute", top: -34, left: "50%", transform: "translateX(-50%)", zIndex: 5,
-            background: INK, color: "#f7f1e6", padding: "6px 14px", borderRadius: 999, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap",
-          }}>{flash}</div>
-        )}
-        <Grid solvedGroups={view.solvedGroups} displayOrder={displayOrder} labelOf={labelOf}
-          selected={selected} disabled={view.finished} onToggle={toggle} />
-      </div>
-
       {!view.finished && (
-        <Controls mistakesLeft={view.mistakesLeft} canSubmit={selected.length === 4}
-          anySelected={selected.length > 0} onShuffle={shuffle} onDeselect={deselectAll} onSubmit={onSubmit} />
+        <>
+          <div style={{ position: "relative" }}>
+            {flash && (
+              <div className="animate-fade-in" style={{
+                position: "absolute", top: -34, left: "50%", transform: "translateX(-50%)", zIndex: 5,
+                background: INK, color: "#f7f1e6", padding: "6px 14px", borderRadius: 999, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap",
+              }}>{flash}</div>
+            )}
+            <Grid solvedGroups={view.solvedGroups} displayOrder={displayOrder} labelOf={labelOf}
+              selected={selected} disabled={view.finished} onToggle={toggle} />
+          </div>
+
+          <Controls mistakesLeft={view.mistakesLeft} canSubmit={selected.length === 4}
+            anySelected={selected.length > 0} onShuffle={shuffle} onDeselect={deselectAll} onSubmit={onSubmit} />
+        </>
       )}
 
       {view.finished && <WinLose view={view} />}
