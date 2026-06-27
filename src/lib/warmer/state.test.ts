@@ -62,6 +62,19 @@ describe("recordGuess", () => {
     expect(s.streak).toBe(5);
     expect(s.maxStreak).toBe(5);
   });
+  it("accumulates guessDistribution across two solves", () => {
+    let s = startDay(initialState(), "2026-06-26");
+    s = recordGuess(s, TARGET, TARGET, "2026-06-26");           // 1 guess → "1-3" = 1
+    s = startDay(s, DATE);
+    s = recordGuess(s, "06037", TARGET, DATE);
+    s = recordGuess(s, TARGET, TARGET, DATE);                    // 2 guesses → "1-3" = 2
+    expect(s.guessDistribution["1-3"]).toBe(2);
+  });
+  it("recordGuess after solve is a no-op", () => {
+    const s = recordGuess(startDay(initialState(), DATE), TARGET, TARGET, DATE);
+    const s2 = recordGuess(s, "06037", TARGET, DATE);
+    expect(s2).toBe(s);
+  });
 });
 
 describe("giveUp", () => {
@@ -73,5 +86,10 @@ describe("giveUp", () => {
     expect(s.streak).toBe(0);
     expect(s.gamesPlayed).toBe(1);
     expect(s.solves).toBe(0);
+  });
+  it("giveUp is idempotent on an already-finished day", () => {
+    const s = giveUp(startDay(initialState(), DATE), DATE);
+    const s2 = giveUp(s, DATE);
+    expect(s2).toBe(s); // same reference
   });
 });
