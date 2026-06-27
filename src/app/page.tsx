@@ -1,5 +1,5 @@
-import CountleApp from "@/components/countle/CountleApp";
+import HubApp from "@/components/hub/HubApp";
 
 export default function Page() {
-  return <CountleApp />;
+  return <HubApp />;
 }
