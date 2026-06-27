@@ -64,6 +64,8 @@ describe("buildWarmerSession", () => {
     expect(v.target?.fips).toBe(TARGET.fips);
     expect(v.shareText).toContain(TARGET.state_name);
     expect(v.shareText).toContain("🟩");
+    expect(v.shareText).toContain("found it in");
+    expect(v.shareText).toContain("county.games");
   });
 });
 
