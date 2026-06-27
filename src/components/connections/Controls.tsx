@@ -29,7 +29,7 @@ export default function Controls({ mistakesLeft, canSubmit, anySelected, onShuff
         <div style={{ display: "flex", gap: 6 }}>
           {[0, 1, 2, 3].map((i) => (
             <span key={i} style={{
-              width: 12, height: 12, borderRadius: "50%",
+              display: "inline-block", width: 12, height: 12, borderRadius: "50%",
               background: i < mistakesLeft ? INK : "rgba(36,29,18,0.18)",
             }} />
           ))}
