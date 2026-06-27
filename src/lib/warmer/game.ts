@@ -22,7 +22,7 @@ export function evaluateGuess(target: CountyEntry, guess: CountyEntry): GuessFee
   return { fips: guess.fips, miles: Math.round(rawMiles), bearingDeg: deg, arrow, label, tier: heatTier(rawMiles) };
 }
 
-export const GUESS_BUCKETS = ["1-3", "4-6", "7-9", "10+"];
+export const GUESS_BUCKETS: readonly string[] = ["1-3", "4-6", "7-9", "10+"];
 export function guessBucket(n: number): string {
   if (n <= 3) return "1-3";
   if (n <= 6) return "4-6";

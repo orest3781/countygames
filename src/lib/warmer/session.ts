@@ -45,12 +45,13 @@ export function buildWarmerSession(dataset: Dataset, state: WarmerState, dateKey
   };
 }
 
-export type ApplyGuessResult = { ok: true; state: WarmerState } | { ok: false; reason: "duplicate" | "unknown" };
+export type ApplyGuessResult = { ok: true; state: WarmerState } | { ok: false; reason: "duplicate" | "unknown" | "finished" };
 
 export function applyGuess(dataset: Dataset, state: WarmerState, dateKey: string, fips: string): ApplyGuessResult {
   if (!dataset.byFips.has(fips)) return { ok: false, reason: "unknown" };
   const target = getDailyTarget(dataset, dateKey);
   const started = startDay(state, dateKey);
+  if (started.today!.solved || started.today!.gaveUp) return { ok: false, reason: "finished" };
   if (started.today!.guesses.includes(fips)) return { ok: false, reason: "duplicate" };
   return { ok: true, state: recordGuess(started, fips, target.fips, dateKey) };
 }

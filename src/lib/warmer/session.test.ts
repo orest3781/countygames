@@ -86,4 +86,14 @@ describe("applyGuess", () => {
     if (dup.ok) return;
     expect(dup.reason).toBe("duplicate");
   });
+  it("rejects a new guess on a finished day with reason 'finished'", () => {
+    const solved = applyGuess(ds, initialState(), DATE, TARGET.fips);
+    expect(solved.ok).toBe(true);
+    if (!solved.ok) return;
+    const other = ds.all.find((c) => c.fips !== TARGET.fips)!;
+    const after = applyGuess(ds, solved.state, DATE, other.fips);
+    expect(after.ok).toBe(false);
+    if (after.ok) return;
+    expect(after.reason).toBe("finished");
+  });
 });
